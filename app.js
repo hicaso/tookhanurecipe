@@ -11,19 +11,28 @@ let savedRecipes = [];
 
 // --- Default Data for First-Time Users ---
 const defaultItems = [
-    { id: 'def-1', name: '고추장', brand: '해찬들', price: 10000, qty: 10, unit: 'kg', basePrice: 1, baseUnit: 'g' },
-    { id: 'def-2', name: '참기름', brand: '백설', price: 15000, qty: 1.8, unit: 'L', basePrice: 8.33, baseUnit: 'ml' },
-    { id: 'def-3', name: '달걀', brand: '목초란', price: 6000, qty: 30, unit: 'EA', basePrice: 200, baseUnit: 'EA' }
+    { id: 'def-gochu', name: '고추장', brand: '(임시)', price: 30000, qty: 10, unit: 'kg', basePrice: 3, baseUnit: 'g' },
+    { id: 'def-sugar', name: '정백당', brand: '(임시)', price: 15000, qty: 15, unit: 'kg', basePrice: 1, baseUnit: 'g' },
+    { id: 'def-msg', name: 'MSG', brand: '(임시)', price: 10000, qty: 1, unit: 'kg', basePrice: 10, baseUnit: 'g' },
+    { id: 'def-pepper', name: '고춧가루', brand: '(임시)', price: 15000, qty: 1, unit: 'kg', basePrice: 15, baseUnit: 'g' },
+    { id: 'def-hotpepper', name: '매운 고춧가루', brand: '(임시)', price: 20000, qty: 1, unit: 'kg', basePrice: 20, baseUnit: 'g' },
+    { id: 'def-salt', name: '정제염', brand: '(임시)', price: 5000, qty: 100, unit: '스푼', basePrice: 50, baseUnit: '스푼' },
+    { id: 'def-water', name: '정제수', brand: '(임시)', price: 0, qty: 1, unit: 'L', basePrice: 0, baseUnit: 'ml' }
 ];
 
 const defaultRecipes = [
     {
         id: 'rec-def-1',
-        name: '비빔밥 소스 v1',
-        packagingCost: 500,
+        name: '비법 양념장 (요청 레시피)',
+        packagingCost: 0,
         ingredients: [
-            { itemId: 'def-1', usageQty: 50 }, // 고추장 50g -> 50원
-            { itemId: 'def-2', usageQty: 15 }  // 참기름 15ml -> 125원 (8.33 * 15 = 124.95)
+            { itemId: 'def-gochu', usageQty: 2500, name: '고추장', brand: '(임시)', price: 30000, qty: 10, unit: 'kg', basePrice: 3, baseUnit: 'g' },
+            { itemId: 'def-sugar', usageQty: 200, name: '정백당', brand: '(임시)', price: 15000, qty: 15, unit: 'kg', basePrice: 1, baseUnit: 'g' },
+            { itemId: 'def-msg', usageQty: 200, name: 'MSG', brand: '(임시)', price: 10000, qty: 1, unit: 'kg', basePrice: 10, baseUnit: 'g' },
+            { itemId: 'def-pepper', usageQty: 200, name: '고춧가루', brand: '(임시)', price: 15000, qty: 1, unit: 'kg', basePrice: 15, baseUnit: 'g' },
+            { itemId: 'def-hotpepper', usageQty: 30, name: '매운 고춧가루', brand: '(임시)', price: 20000, qty: 1, unit: 'kg', basePrice: 20, baseUnit: 'g' },
+            { itemId: 'def-salt', usageQty: 1, name: '정제염', brand: '(임시)', price: 5000, qty: 100, unit: '스푼', basePrice: 50, baseUnit: '스푼' },
+            { itemId: 'def-water', usageQty: 500, name: '정제수', brand: '(임시)', price: 0, qty: 1, unit: 'L', basePrice: 0, baseUnit: 'ml' }
         ],
         createdAt: new Date().toISOString()
     }
@@ -96,6 +105,8 @@ function getBaseUnit(unit) {
             return 'ml';
         case 'EA':
             return 'EA';
+        case '스푼':
+            return '스푼';
         default:
             return 'g';
     }
@@ -105,7 +116,7 @@ function convertToMinUnitQty(qty, unit) {
     if (unit === 'kg' || unit === 'L') {
         return qty * 1000;
     }
-    return qty; // g, ml, EA
+    return qty; // g, ml, EA, 스푼
 }
 
 function convertQty(qty, fromUnit, toUnit) {
@@ -116,7 +127,7 @@ function convertQty(qty, fromUnit, toUnit) {
     // volume
     if (fromUnit === 'L' && toUnit === 'ml') return qty * 1000;
     if (fromUnit === 'ml' && toUnit === 'L') return qty / 1000;
-    return qty; // EA or fallback
+    return qty; // EA, 스푼 or fallback
 }
 
 function calculateBaseUnitPrice(price, qty, unit) {
