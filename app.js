@@ -392,9 +392,13 @@ function initEventListeners() {
     }
 
     // Item Master Form Collapsible & Auto Expand on typing item name
-    const itemFormHeader = document.getElementById('item-form-header');
-    if (itemFormHeader) {
-        itemFormHeader.addEventListener('click', toggleItemForm);
+    const itemFormCard = document.getElementById('item-form-card');
+    if (itemFormCard) {
+        itemFormCard.addEventListener('click', (e) => {
+            if (e.target.closest('#item-form-header') || e.target.closest('.collapse-toggle-btn')) {
+                toggleItemForm();
+            }
+        });
     }
 
     const itemNameInput = document.getElementById('item-name');
@@ -405,8 +409,6 @@ function initEventListeners() {
         itemNameInput.addEventListener('input', (e) => {
             if (e.target.value.trim().length > 0) {
                 expandItemForm();
-            } else {
-                collapseItemForm();
             }
         });
     }
