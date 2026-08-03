@@ -11,13 +11,16 @@ let savedRecipes = [];
 
 // --- Default Data for First-Time Users ---
 const defaultItems = [
-    { id: 'def-gochu', name: '고추장', brand: '(임시)', price: 30000, qty: 10, unit: 'kg', basePrice: 3, baseUnit: 'g' },
-    { id: 'def-sugar', name: '정백당', brand: '(임시)', price: 15000, qty: 15, unit: 'kg', basePrice: 1, baseUnit: 'g' },
-    { id: 'def-msg', name: 'MSG', brand: '(임시)', price: 10000, qty: 1, unit: 'kg', basePrice: 10, baseUnit: 'g' },
-    { id: 'def-pepper', name: '고춧가루', brand: '(임시)', price: 15000, qty: 1, unit: 'kg', basePrice: 15, baseUnit: 'g' },
-    { id: 'def-hotpepper', name: '매운 고춧가루', brand: '(임시)', price: 20000, qty: 1, unit: 'kg', basePrice: 20, baseUnit: 'g' },
-    { id: 'def-salt', name: '정제염', brand: '(임시)', price: 5000, qty: 100, unit: '스푼', basePrice: 50, baseUnit: '스푼' },
-    { id: 'def-water', name: '정제수', brand: '(임시)', price: 0, qty: 1, unit: 'L', basePrice: 0, baseUnit: 'ml' }
+    { id: 'def-gochu', name: '고추장', brand: '임시', price: 45000, qty: 14, unit: 'kg', basePrice: 3.214, baseUnit: 'g' },
+    { id: 'def-sugar', name: '정백당', brand: '임시', price: 18800, qty: 5, unit: 'kg', basePrice: 3.76, baseUnit: 'g' },
+    { id: 'def-msg', name: 'MSG', brand: '임시', price: 23000, qty: 2, unit: 'kg', basePrice: 11.50, baseUnit: 'g' },
+    { id: 'def-pepper', name: '고춧가루', brand: '임시', price: 25000, qty: 2.5, unit: 'kg', basePrice: 10.00, baseUnit: 'g' },
+    { id: 'def-hotpepper', name: '매운 고춧가루', brand: '임시', price: 14000, qty: 1, unit: 'kg', basePrice: 14.00, baseUnit: 'g' },
+    { id: 'def-salt', name: '정제염', brand: '임시', price: 19880, qty: 20000, unit: 'g', basePrice: 0.994, baseUnit: 'g' },
+    { id: 'def-water', name: '정제수', brand: '임시', price: 1000, qty: 2, unit: 'L', basePrice: 0.50, baseUnit: 'ml' },
+    { id: 'def-pork-huji', name: '돈육 후지', brand: '', price: 5600, qty: 1, unit: 'kg', basePrice: 5.60, baseUnit: 'g' },
+    { id: 'def-pack-box', name: '배달용 사각용기세트 (포장재)', brand: '크린팩', price: 35000, qty: 100, unit: 'EA', basePrice: 350, baseUnit: 'EA' },
+    { id: 'def-pack-bag', name: '포장 비닐봉투 (포장재)', brand: '임시', price: 5000, qty: 100, unit: 'EA', basePrice: 50, baseUnit: 'EA' }
 ];
 
 const defaultRecipes = [
@@ -26,17 +29,34 @@ const defaultRecipes = [
         name: '비법 양념장 (요청 레시피)',
         packagingCost: 0,
         ingredients: [
-            { itemId: 'def-gochu', usageQty: 2500, name: '고추장', brand: '(임시)', price: 30000, qty: 10, unit: 'kg', basePrice: 3, baseUnit: 'g' },
-            { itemId: 'def-sugar', usageQty: 200, name: '정백당', brand: '(임시)', price: 15000, qty: 15, unit: 'kg', basePrice: 1, baseUnit: 'g' },
-            { itemId: 'def-msg', usageQty: 200, name: 'MSG', brand: '(임시)', price: 10000, qty: 1, unit: 'kg', basePrice: 10, baseUnit: 'g' },
-            { itemId: 'def-pepper', usageQty: 200, name: '고춧가루', brand: '(임시)', price: 15000, qty: 1, unit: 'kg', basePrice: 15, baseUnit: 'g' },
-            { itemId: 'def-hotpepper', usageQty: 30, name: '매운 고춧가루', brand: '(임시)', price: 20000, qty: 1, unit: 'kg', basePrice: 20, baseUnit: 'g' },
-            { itemId: 'def-salt', usageQty: 1, name: '정제염', brand: '(임시)', price: 5000, qty: 100, unit: '스푼', basePrice: 50, baseUnit: '스푼' },
-            { itemId: 'def-water', usageQty: 500, name: '정제수', brand: '(임시)', price: 0, qty: 1, unit: 'L', basePrice: 0, baseUnit: 'ml' }
+            { itemId: 'def-gochu', usageQty: 2500, name: '고추장', brand: '임시', price: 45000, qty: 14, unit: 'kg', basePrice: 3.214, baseUnit: 'g' },
+            { itemId: 'def-sugar', usageQty: 200, name: '정백당', brand: '임시', price: 18800, qty: 5, unit: 'kg', basePrice: 3.76, baseUnit: 'g' },
+            { itemId: 'def-msg', usageQty: 200, name: 'MSG', brand: '임시', price: 23000, qty: 2, unit: 'kg', basePrice: 11.50, baseUnit: 'g' },
+            { itemId: 'def-pepper', usageQty: 200, name: '고춧가루', brand: '임시', price: 25000, qty: 2.5, unit: 'kg', basePrice: 10.00, baseUnit: 'g' },
+            { itemId: 'def-hotpepper', usageQty: 30, name: '매운 고춧가루', brand: '임시', price: 14000, qty: 1, unit: 'kg', basePrice: 14.00, baseUnit: 'g' },
+            { itemId: 'def-salt', usageQty: 1, name: '정제염', brand: '임시', price: 19880, qty: 20000, unit: 'g', basePrice: 0.994, baseUnit: 'g' },
+            { itemId: 'def-water', usageQty: 500, name: '정제수', brand: '임시', price: 1000, qty: 2, unit: 'L', basePrice: 0.50, baseUnit: 'ml' }
         ],
         createdAt: new Date().toISOString()
     }
 ];
+
+// --- Brand Display Formatting Helper ---
+function getFormattedBrandDisplay(brandStr) {
+    if (!brandStr) return '';
+    const clean = brandStr.replace(/^\((.+)\)$/, '$1').trim();
+    if (!clean) return '';
+    
+    const brands = clean.split(/[,/ ]+/).map(b => b.trim()).filter(b => b.length > 0);
+    if (brands.length === 0) return '';
+    
+    if (brands.length >= 3) {
+        // 3개가 되면 마지막 브랜드 뒤에 ... 표시
+        return `[${brands.slice(0, 3).join(' ')}...]`;
+    } else {
+        return `[${brands.join(' ')}]`;
+    }
+}
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,30 +69,54 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- LocalStorage Logic ---
 function loadFromLocalStorage() {
     initCredentials();
-    // Load Items
+    
+    // Load Items (Always force ensure 8 default items exist with current values)
     const storedItems = localStorage.getItem('rc_items');
+    let loadedItems = [];
     if (storedItems) {
-        items = JSON.parse(storedItems);
-    } else {
-        items = [...defaultItems];
-        localStorage.setItem('rc_items', JSON.stringify(items));
+        try {
+            const parsed = JSON.parse(storedItems);
+            if (Array.isArray(parsed)) loadedItems = parsed;
+        } catch (e) {}
     }
+    
+    // Replace default items with updated specification
+    defaultItems.forEach(def => {
+        const idx = loadedItems.findIndex(i => i.name.trim().toLowerCase() === def.name.trim().toLowerCase());
+        if (idx > -1) {
+            loadedItems[idx] = { ...def, id: loadedItems[idx].id };
+        } else {
+            loadedItems.push(def);
+        }
+    });
+    
+    items = loadedItems;
+    localStorage.setItem('rc_items', JSON.stringify(items));
 
     // Load Recipes
     const storedRecipes = localStorage.getItem('rc_recipes');
     if (storedRecipes) {
-        savedRecipes = JSON.parse(storedRecipes);
+        try {
+            const parsed = JSON.parse(storedRecipes);
+            if (Array.isArray(parsed)) {
+                savedRecipes = parsed;
+            } else {
+                savedRecipes = [...defaultRecipes];
+            }
+        } catch (e) {
+            savedRecipes = [...defaultRecipes];
+        }
     } else {
         savedRecipes = [...defaultRecipes];
-        localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes));
     }
+    localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes));
 }
 
 // Ensure items save triggers render and dropdown updates
 function saveItemsToLocalStorage() {
     localStorage.setItem('rc_items', JSON.stringify(items));
     renderItemsList();
-    updateItemSelectDropdown();
+    renderAvailableItemChips();
 }
 
 function saveRecipesToLocalStorage() {
@@ -136,10 +180,44 @@ function calculateBaseUnitPrice(price, qty, unit) {
     return price / minQty;
 }
 
+// FIFO (선입선출) 기반 g/ml/EA당 단가 계산 헬퍼
+function calculateFifoUnitPrice(item, usageQtyInBaseUnit) {
+    if (!item) return 0;
+    if (item.batches && Array.isArray(item.batches) && item.batches.length > 0) {
+        let remainingQtyNeeded = usageQtyInBaseUnit;
+        let totalCost = 0;
+        const sortedBatches = [...item.batches].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        
+        for (const batch of sortedBatches) {
+            const batchBaseQty = convertToMinUnitQty(batch.qty, batch.unit);
+            const batchBasePrice = calculateBaseUnitPrice(batch.price, batch.qty, batch.unit);
+            
+            if (remainingQtyNeeded <= 0) break;
+            
+            const takeQty = Math.min(remainingQtyNeeded, batchBaseQty);
+            totalCost += takeQty * batchBasePrice;
+            remainingQtyNeeded -= takeQty;
+        }
+        
+        if (remainingQtyNeeded > 0) {
+            totalCost += remainingQtyNeeded * item.basePrice;
+        }
+        
+        return usageQtyInBaseUnit > 0 ? totalCost / usageQtyInBaseUnit : item.basePrice;
+    }
+    return item.basePrice;
+}
+
 // --- Event Listeners ---
 function initEventListeners() {
     // Theme Toggle
     document.getElementById('theme-toggle-btn').addEventListener('click', toggleTheme);
+
+    // Chat Recipe Auto Parsing
+    const parseChatBtn = document.getElementById('parse-chat-recipe-btn');
+    if (parseChatBtn) {
+        parseChatBtn.addEventListener('click', handleParseChatRecipe);
+    }
 
     // Item Master Form Submit
     const itemForm = document.getElementById('item-master-form');
@@ -151,36 +229,91 @@ function initEventListeners() {
     // Item Search
     document.getElementById('search-item').addEventListener('input', renderItemsList);
 
-    // Event Delegation: Item Master List Edit/Delete Buttons
+    // Event Delegation: Item Master List Item Click (Opens Item Details/Edit Modal Window)
     document.getElementById('items-list-container').addEventListener('click', (e) => {
         const card = e.target.closest('.item-card');
         if (!card) return;
         const id = card.dataset.id;
 
-        const editBtn = e.target.closest('.edit-btn');
         const deleteBtn = e.target.closest('.delete-btn');
-
-        if (editBtn) {
-            editItem(id);
-        } else if (deleteBtn) {
+        if (deleteBtn) {
             deleteItem(id);
+        } else {
+            // Clicking item name or anywhere on item card opens modal window with 품목명, 브랜드, 단가, 중량
+            openItemEditModal(id);
         }
     });
 
-    // Recipe Item Select Event (to display correct usage unit)
-    document.getElementById('recipe-item-select').addEventListener('change', handleRecipeItemSelectChange);
+    // Item Edit Modal Form Listeners
+    const itemEditModalForm = document.getElementById('item-edit-modal-form');
+    if (itemEditModalForm) {
+        itemEditModalForm.addEventListener('submit', handleItemEditModalSubmit);
+    }
+    const closeItemEditModalBtn = document.getElementById('close-item-edit-modal-btn');
+    if (closeItemEditModalBtn) {
+        closeItemEditModalBtn.addEventListener('click', closeItemEditModal);
+    }
+    const cancelItemEditModalBtn = document.getElementById('cancel-item-edit-modal-btn');
+    if (cancelItemEditModalBtn) {
+        cancelItemEditModalBtn.addEventListener('click', closeItemEditModal);
+    }
 
     // Add ingredient to recipe
     document.getElementById('add-recipe-item-btn').addEventListener('click', handleAddRecipeItem);
 
-    // Event Delegation: Recipe Ingredients Table Delete Button
-    document.getElementById('recipe-ingredients-tbody').addEventListener('click', (e) => {
-        const deleteBtn = e.target.closest('.ingredient-row-delete-btn');
-        if (deleteBtn) {
-            const itemId = deleteBtn.dataset.itemId;
-            removeRecipeIngredient(itemId);
-        }
-    });
+    // Delegation handler helper for ingredient and packaging tables
+    const setupTableListeners = (tbodyEl) => {
+        if (!tbodyEl) return;
+        tbodyEl.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('.ingredient-row-delete-btn');
+            if (deleteBtn) {
+                const itemId = deleteBtn.dataset.itemId;
+                const ingId = deleteBtn.dataset.ingId;
+                removeRecipeIngredient(ingId || itemId);
+                return;
+            }
+
+            const unregBtn = e.target.closest('.unregistered-item-btn');
+            if (unregBtn) {
+                const ingId = unregBtn.dataset.ingId;
+                const rawName = unregBtn.dataset.rawName;
+                const baseUnit = unregBtn.dataset.baseUnit;
+                openQuickItemModal(ingId, rawName, baseUnit);
+                return;
+            }
+
+            const itemNameClick = e.target.closest('.ingredient-item-name');
+            if (itemNameClick) {
+                const tr = itemNameClick.closest('tr');
+                if (tr && tr.dataset.itemId) {
+                    openItemEditModal(tr.dataset.itemId);
+                }
+            }
+        });
+
+        tbodyEl.addEventListener('input', (e) => {
+            const usageInput = e.target.closest('.ingredient-usage-input');
+            if (usageInput) {
+                const ingId = usageInput.dataset.ingId;
+                const newQty = parseFloat(usageInput.value);
+                const ing = activeRecipe.ingredients.find(i => i.id === ingId);
+                if (ing && !isNaN(newQty) && newQty >= 0) {
+                    ing.usageQty = newQty;
+                    renderRecipeSummary();
+                    const item = items.find(i => i.id === ing.itemId);
+                    const costCell = usageInput.closest('tr').querySelector('td:nth-last-child(2)');
+                    if (costCell && item) {
+                        const fifoPrice = calculateFifoUnitPrice(item, newQty);
+                        const cost = fifoPrice * newQty;
+                        costCell.textContent = formatNumber(Math.round(cost)) + '원';
+                    }
+                }
+            }
+        });
+    };
+
+    setupTableListeners(document.getElementById('recipe-ingredients-tbody'));
+    setupTableListeners(document.getElementById('recipe-packaging-tbody'));
 
     // Packaging Cost inputs
     document.getElementById('packaging-cost').addEventListener('input', (e) => {
@@ -258,8 +391,28 @@ function initEventListeners() {
         savedRecipesHeader.addEventListener('click', toggleSavedRecipesDB);
     }
 
+    // Item Master Form Collapsible & Auto Expand on typing item name
+    const itemFormHeader = document.getElementById('item-form-header');
+    if (itemFormHeader) {
+        itemFormHeader.addEventListener('click', toggleItemForm);
+    }
+
+    const itemNameInput = document.getElementById('item-name');
+    if (itemNameInput) {
+        itemNameInput.addEventListener('focus', () => {
+            expandItemForm();
+        });
+        itemNameInput.addEventListener('input', (e) => {
+            if (e.target.value.trim().length > 0) {
+                expandItemForm();
+            } else {
+                collapseItemForm();
+            }
+        });
+    }
+
     // Collapse Saved Recipes DB card when starting to enter/edit a recipe
-    const recipeInputs = ['recipe-name', 'packaging-cost', 'recipe-item-select', 'recipe-item-qty'];
+    const recipeInputs = ['recipe-name', 'packaging-cost', 'recipe-item-qty', 'chat-recipe-input'];
     recipeInputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -268,7 +421,34 @@ function initEventListeners() {
         }
     });
 
-    // Auth Event Listeners
+    // Auth Event Listeners & Key Filter (Block Space, Shift, Ctrl, Alt, etc.)
+    const filterAuthKeys = (inputEl) => {
+        if (!inputEl) return;
+        inputEl.addEventListener('keydown', (e) => {
+            // Allow essential navigation/editing keys (Backspace, Delete, Arrow keys, Enter, Tab)
+            const allowedControlKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Tab'];
+            if (allowedControlKeys.includes(e.key)) {
+                return; // allow normal operation
+            }
+            // Block Space bar
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                return;
+            }
+            // Block modifier keys or functional control keys (Shift, Control, Alt, Meta, CapsLock, Escape, etc.)
+            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta' || e.key === 'CapsLock' || e.key === 'Escape') {
+                e.preventDefault();
+                return;
+            }
+            // Only allow standard Alphanumeric characters (letters and numbers)
+            if (!/^[a-zA-Z0-9]$/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    };
+    filterAuthKeys(document.getElementById('login-id'));
+    filterAuthKeys(document.getElementById('login-pw'));
+
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', handleLoginSubmit);
@@ -298,21 +478,138 @@ function initEventListeners() {
     if (pwChangeForm) {
         pwChangeForm.addEventListener('submit', handlePwChangeSubmit);
     }
+
+    // Quick Item Modal Listeners
+    const quickItemForm = document.getElementById('quick-item-form');
+    if (quickItemForm) {
+        quickItemForm.addEventListener('submit', handleQuickItemSubmit);
+    }
+    const closeQuickModalBtn = document.getElementById('close-quick-item-modal-btn');
+    if (closeQuickModalBtn) {
+        closeQuickModalBtn.addEventListener('click', closeQuickItemModal);
+    }
+    const cancelQuickModalBtn = document.getElementById('cancel-quick-item-btn');
+    if (cancelQuickModalBtn) {
+        cancelQuickModalBtn.addEventListener('click', closeQuickItemModal);
+    }
 }
 
-// --- Item Form Actions ---
+// --- Item Master Collapsible Helper Functions ---
+function toggleItemForm() {
+    const card = document.getElementById('item-form-card');
+    if (card) {
+        card.classList.toggle('collapsed');
+    }
+}
+
+function expandItemForm() {
+    const card = document.getElementById('item-form-card');
+    if (card && card.classList.contains('collapsed')) {
+        card.classList.remove('collapsed');
+    }
+}
+
+function collapseItemForm() {
+    const card = document.getElementById('item-form-card');
+    if (card && !card.classList.contains('collapsed')) {
+        card.classList.add('collapsed');
+    }
+}
+
+// --- Item Form Actions & Item Edit Modal ---
+function openItemEditModal(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    document.getElementById('modal-edit-item-id').value = item.id;
+    document.getElementById('modal-item-name').value = item.name;
+    document.getElementById('modal-item-brand').value = item.brand || '';
+    document.getElementById('modal-purchase-price').value = item.price;
+    document.getElementById('modal-purchase-qty').value = item.qty;
+    document.getElementById('modal-purchase-unit').value = item.unit;
+
+    const modal = document.getElementById('item-edit-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.getElementById('modal-item-name').focus();
+    }
+}
+
+function closeItemEditModal() {
+    const modal = document.getElementById('item-edit-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    const form = document.getElementById('item-edit-modal-form');
+    if (form) form.reset();
+}
+
+function handleItemEditModalSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('modal-edit-item-id').value;
+    const name = document.getElementById('modal-item-name').value.trim();
+    const brand = document.getElementById('modal-item-brand').value.trim();
+    const price = parseFloat(document.getElementById('modal-purchase-price').value);
+    const qty = parseFloat(document.getElementById('modal-purchase-qty').value);
+    const unit = document.getElementById('modal-purchase-unit').value;
+
+    if (!name || isNaN(price) || isNaN(qty)) {
+        showToast('올바른 품목명, 단가(가격), 중량(수량)을 입력해주세요.', 'danger');
+        return;
+    }
+
+    const itemIndex = items.findIndex(i => i.id === id);
+    if (itemIndex > -1) {
+        const baseUnit = getBaseUnit(unit);
+        const basePrice = calculateBaseUnitPrice(price, qty, unit);
+        items[itemIndex] = { ...items[itemIndex], name, brand, price, qty, unit, basePrice, baseUnit };
+
+        // Update ingredient snapshots in active recipe if present
+        if (activeRecipe && activeRecipe.ingredients) {
+            activeRecipe.ingredients.forEach(ing => {
+                if (ing.itemId === id) {
+                    ing.name = name;
+                    ing.brand = brand;
+                    ing.price = price;
+                    ing.qty = qty;
+                    ing.unit = unit;
+                    ing.basePrice = basePrice;
+                    ing.baseUnit = baseUnit;
+                }
+            });
+        }
+
+        saveItemsToLocalStorage();
+        renderRecipeIngredientsTable();
+        closeItemEditModal();
+        showToast(`"${name}" 품목 정보가 수정되었습니다.`, 'success');
+    }
+}
+
 function handleItemFormSubmit(e) {
     e.preventDefault();
 
     const editId = document.getElementById('edit-item-id').value;
     const name = document.getElementById('item-name').value.trim();
     const brand = document.getElementById('item-brand').value.trim();
-    const price = parseFloat(document.getElementById('purchase-price').value);
-    const qty = parseFloat(document.getElementById('purchase-qty').value);
-    const unit = document.getElementById('purchase-unit').value;
+    const priceVal = document.getElementById('purchase-price').value;
+    const qtyVal = document.getElementById('purchase-qty').value;
+    const price = parseFloat(priceVal);
+    const qty = parseFloat(qtyVal);
+    const unit = document.getElementById('purchase-unit').value || 'g';
 
     if (!name || isNaN(price) || isNaN(qty)) {
-        showToast('올바른 값을 입력해주세요.', 'danger');
+        expandItemForm();
+        if (!name) {
+            document.getElementById('item-name').focus();
+            showToast('품목명을 입력해주세요.', 'danger');
+        } else if (isNaN(price)) {
+            document.getElementById('purchase-price').focus();
+            showToast('구매 가격(단가)을 입력해주세요.', 'danger');
+        } else if (isNaN(qty)) {
+            document.getElementById('purchase-qty').focus();
+            showToast('구매 수량(중량)을 입력해주세요.', 'danger');
+        }
         return;
     }
 
@@ -331,7 +628,6 @@ function handleItemFormSubmit(e) {
         // Check for duplicates and accumulate cost/quantities if name matches
         const existingItem = items.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (existingItem) {
-            // Check compatible unit classes (weight vs volume vs EA)
             const isExistingWeight = ['kg', 'g'].includes(existingItem.unit);
             const isNewWeight = ['kg', 'g'].includes(unit);
             const isExistingVolume = ['L', 'ml'].includes(existingItem.unit);
@@ -346,18 +642,24 @@ function handleItemFormSubmit(e) {
                 return;
             }
 
-            // Accumulate
             const convertedNewQty = convertQty(qty, unit, existingItem.unit);
             existingItem.qty += convertedNewQty;
             existingItem.price += price;
             if (brand) {
-                existingItem.brand = brand; // Overwrite or update with latest brand
+                let existingBrands = existingItem.brand ? 
+                    existingItem.brand.replace(/^\((.+)\)$/, '$1').split(/[,/ ]+/).map(b => b.trim()).filter(b => b.length > 0) : [];
+                const newBrands = brand.replace(/^\((.+)\)$/, '$1').split(/[,/ ]+/).map(b => b.trim()).filter(b => b.length > 0);
+                newBrands.forEach(b => {
+                    if (!existingBrands.includes(b)) {
+                        existingBrands.push(b);
+                    }
+                });
+                existingItem.brand = existingBrands.join(' ');
             }
             existingItem.basePrice = calculateBaseUnitPrice(existingItem.price, existingItem.qty, existingItem.unit);
 
             showToast(`"${existingItem.name}" 품목에 수량(${qty}${unit})과 가격(${price}원)이 누적 합산되었습니다.`, 'success');
         } else {
-            // Add new item
             const newItem = {
                 id: 'item-' + Date.now(),
                 name,
@@ -376,25 +678,12 @@ function handleItemFormSubmit(e) {
     saveItemsToLocalStorage();
     document.getElementById('item-master-form').reset();
     document.getElementById('edit-item-id').value = '';
+    collapseItemForm();
     renderRecipeIngredientsTable();
 }
 
 function editItem(id) {
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-
-    document.getElementById('edit-item-id').value = item.id;
-    document.getElementById('item-name').value = item.name;
-    document.getElementById('item-brand').value = item.brand || '';
-    document.getElementById('purchase-price').value = item.price;
-    document.getElementById('purchase-qty').value = item.qty;
-    document.getElementById('purchase-unit').value = item.unit;
-
-    // Toggle Buttons
-    document.getElementById('item-submit-btn').querySelector('span').textContent = '품목 수정하기';
-    document.getElementById('item-cancel-edit-btn').classList.remove('hidden');
-
-    document.getElementById('item-name').focus();
+    openItemEditModal(id);
 }
 
 function cancelItemEdit() {
@@ -402,6 +691,7 @@ function cancelItemEdit() {
     document.getElementById('item-master-form').reset();
     document.getElementById('item-submit-btn').querySelector('span').textContent = '품목 등록하기';
     document.getElementById('item-cancel-edit-btn').classList.add('hidden');
+    collapseItemForm();
 }
 
 function deleteItem(id) {
@@ -688,7 +978,7 @@ function printActiveRecipe() {
 // --- Render Logic ---
 function renderAll() {
     renderItemsList();
-    updateItemSelectDropdown();
+    renderAvailableItemChips();
     renderRecipeIngredientsTable();
     renderSavedRecipesList();
 }
@@ -719,7 +1009,8 @@ function renderItemsList() {
     }
 
     listContainer.innerHTML = filteredItems.map(item => {
-        const brandHtml = item.brand ? `<span class="item-brand-txt">${escapeHtml(item.brand)}</span>` : '';
+        const brandDisp = getFormattedBrandDisplay(item.brand);
+        const brandHtml = brandDisp ? `<span class="item-brand-txt">${escapeHtml(brandDisp)}</span>` : '';
         return `
             <div class="item-card" data-id="${item.id}">
                 <div class="item-info">
@@ -743,103 +1034,539 @@ function renderItemsList() {
     }).join('');
 
     updateHeaderStats();
+    renderAvailableItemChips();
 }
 
-function updateItemSelectDropdown() {
-    const select = document.getElementById('recipe-item-select');
+function renderAvailableItemChips() {
+    const container = document.getElementById('recipe-items-chip-list');
+    if (!container) return;
     
-    // Keep the default first option
-    select.innerHTML = '<option value="">-- 품목을 선택하세요 --</option>';
+    if (items.length === 0) {
+        container.innerHTML = '<span class="text-muted" style="font-size: 13px;">등록된 품목이 없습니다.</span>';
+        return;
+    }
     
-    items.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.id;
-        const brandStr = item.brand ? ` [${item.brand}]` : '';
-        option.textContent = `${item.name}${brandStr} (${item.basePrice.toFixed(1)}원/${item.baseUnit})`;
-        select.appendChild(option);
+    container.innerHTML = items.map(item => {
+        const brandDisp = getFormattedBrandDisplay(item.brand);
+        const brandStr = brandDisp ? `<span class="chip-brand">${escapeHtml(brandDisp)}</span>` : '';
+        return `
+            <button type="button" class="item-chip-btn" data-item-id="${item.id}" data-unit="${item.baseUnit}">
+                <span>${escapeHtml(item.name)}</span>
+                ${brandStr}
+                <span class="chip-price">(${item.basePrice.toFixed(1)}원/${item.baseUnit})</span>
+            </button>
+        `;
+    }).join('');
+    
+    container.querySelectorAll('.item-chip-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            container.querySelectorAll('.item-chip-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const itemId = btn.getAttribute('data-item-id');
+            const unit = btn.getAttribute('data-unit');
+            const selectedItem = items.find(i => i.id === itemId);
+            
+            const selectedInput = document.getElementById('selected-recipe-item-id');
+            if (selectedInput) selectedInput.value = itemId;
+            
+            const unitDisplay = document.getElementById('recipe-item-unit-display');
+            if (unitDisplay) unitDisplay.textContent = unit || 'g';
+            
+            const displayEl = document.getElementById('selected-item-display');
+            if (displayEl && selectedItem) {
+                const brandDisp = getFormattedBrandDisplay(selectedItem.brand);
+                displayEl.innerHTML = `📌 <strong>${escapeHtml(selectedItem.name)}</strong> ${brandDisp ? `<span style="color:var(--accent-primary); margin-left:4px;">${escapeHtml(brandDisp)}</span>` : ''}`;
+            }
+        });
     });
+}
+
+function handleAddRecipeItem() {
+    const selectedInput = document.getElementById('selected-recipe-item-id');
+    const itemId = selectedInput ? selectedInput.value : '';
+    const qtyInput = document.getElementById('recipe-item-qty');
+    const usageQty = parseFloat(qtyInput.value);
+
+    if (!itemId) {
+        showToast('위 전체 등록 품목 목록에서 추가할 품목을 먼저 선택해주세요.', 'danger');
+        return;
+    }
+
+    if (isNaN(usageQty) || usageQty <= 0) {
+        showToast('올바른 사용 수량을 입력해주세요.', 'danger');
+        return;
+    }
+
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
+    const existingIng = activeRecipe.ingredients.find(i => i.itemId === item.id);
+    if (existingIng) {
+        existingIng.usageQty += usageQty;
+    } else {
+        activeRecipe.ingredients.push({
+            id: 'ing-' + Date.now(),
+            itemId: item.id,
+            usageQty: usageQty,
+            name: item.name,
+            brand: item.brand,
+            price: item.price,
+            qty: item.qty,
+            unit: item.unit,
+            basePrice: item.basePrice,
+            baseUnit: item.baseUnit
+        });
+    }
+
+    qtyInput.value = '';
+    renderRecipeIngredientsTable();
+    showToast(`"${item.name}" 재료가 레시피에 성공적으로 추가되었습니다.`, 'success');
+}
+
+function handleParseChatRecipe() {
+    const inputEl = document.getElementById('chat-recipe-input');
+    const text = inputEl ? inputEl.value.trim() : '';
+    
+    if (!text) {
+        showToast('채팅/텍스트 형식의 레시피를 입력해주세요.', 'danger');
+        return;
+    }
+    
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) return;
+    
+    let recipeTitle = '';
+    let ingredientLines = [];
+    
+    const recipeLineIdx = lines.findIndex(l => l.includes('레시피'));
+    if (recipeLineIdx > -1) {
+        recipeTitle = lines[recipeLineIdx].replace(/레시피/g, '').trim() || lines[recipeLineIdx];
+        if (!recipeTitle.includes('레시피')) recipeTitle += ' 레시피';
+        ingredientLines = lines.filter((_, idx) => idx !== recipeLineIdx);
+    } else {
+        if (!/\d+\s*(g|kg|ml|L|스푼|EA)$/i.test(lines[0])) {
+            recipeTitle = lines[0];
+            ingredientLines = lines.slice(1);
+        } else {
+            recipeTitle = '자유 입력 레시피';
+            ingredientLines = [...lines];
+        }
+    }
+    
+    activeRecipe.name = recipeTitle;
+    document.getElementById('recipe-name').value = recipeTitle;
+    activeRecipe.ingredients = [];
+    
+    let addedCount = 0;
+    let unmatchedCount = 0;
+    
+    ingredientLines.forEach((line, lineIndex) => {
+        // 불필요한 기호(-, *, :, • 등) 제거
+        const cleanLine = line.replace(/^[-*•\s:]+/, '').trim();
+        // 품목명 수량 단위 파싱 정규식 (예: 돈육 후지: 100g, - 고추장 50 g, MSG 10g 등)
+        const match = cleanLine.match(/^(.+?)\s*[:=-]?\s*([\d.,]+)\s*(g|kg|ml|L|스푼|EA)$/i);
+        if (match) {
+            const rawName = match[1].trim();
+            const rawQty = parseFloat(match[2].replace(/,/g, ''));
+            const rawUnit = match[3].trim();
+            
+            if (!rawName || isNaN(rawQty)) return;
+            
+            let normUnit = rawUnit;
+            if (normUnit.toLowerCase() === 'g') normUnit = 'g';
+            if (normUnit.toLowerCase() === 'kg') normUnit = 'kg';
+            if (normUnit.toLowerCase() === 'ml') normUnit = 'ml';
+            if (normUnit.toLowerCase() === 'l') normUnit = 'L';
+            if (normUnit.toLowerCase() === 'ea') normUnit = 'EA';
+            
+            const baseUnit = getBaseUnit(normUnit);
+            const usageQtyInBaseUnit = convertToMinUnitQty(rawQty, normUnit);
+            
+            // 1. 정확한 이름 매칭 시도
+            let matchedItem = items.find(i => i.name.trim().toLowerCase() === rawName.toLowerCase());
+            
+            // 2. 정확히 일치하는 게 없을 경우 부분/유사 매칭(Fuzzy Match) 시도
+            if (!matchedItem) {
+                const cleanRaw = rawName.replace(/\s+/g, '').toLowerCase();
+                matchedItem = items.find(i => {
+                    const cleanItemName = i.name.replace(/\s+/g, '').toLowerCase();
+                    return cleanItemName.includes(cleanRaw) || cleanRaw.includes(cleanItemName);
+                });
+            }
+            
+            if (matchedItem) {
+                activeRecipe.ingredients.push({
+                    id: 'ing-' + Date.now() + '-' + lineIndex,
+                    itemId: matchedItem.id,
+                    rawName: rawName,
+                    usageQty: usageQtyInBaseUnit,
+                    name: matchedItem.name,
+                    brand: matchedItem.brand,
+                    price: matchedItem.price,
+                    qty: matchedItem.qty,
+                    unit: matchedItem.unit,
+                    basePrice: matchedItem.basePrice,
+                    baseUnit: matchedItem.baseUnit
+                });
+                addedCount++;
+            } else {
+                activeRecipe.ingredients.push({
+                    id: 'ing-' + Date.now() + '-' + lineIndex,
+                    itemId: '',
+                    rawName: rawName,
+                    usageQty: usageQtyInBaseUnit,
+                    baseUnit: baseUnit,
+                    name: rawName,
+                    brand: '',
+                    price: 0,
+                    qty: 0,
+                    unit: normUnit,
+                    basePrice: 0
+                });
+                unmatchedCount++;
+            }
+        }
+    });
+    
+    renderRecipeIngredientsTable();
+    collapseSavedRecipesDB();
+    
+    if (addedCount > 0 || unmatchedCount > 0) {
+        if (unmatchedCount > 0) {
+            showToast(`총 ${addedCount + unmatchedCount}개 재료 등록 완료! (${unmatchedCount}개 품목은 등록 품목 선택 또는 신규 등록 필요)`, 'danger');
+        } else {
+            showToast(`"${recipeTitle}" 레시피가 성공적으로 등록되었습니다.`, 'success');
+        }
+    } else {
+        showToast('인식할 수 있는 재료 라인을 찾지 못했습니다. (예: 고추장 50g)', 'danger');
+    }
+}
+
+function handleIngredientMatchChange(ingId, selectedItemId) {
+    const ing = activeRecipe.ingredients.find(i => i.id === ingId);
+    if (!ing) return;
+    
+    ing.itemId = selectedItemId;
+    const item = items.find(i => i.id === selectedItemId);
+    if (item) {
+        ing.name = item.name;
+        ing.brand = item.brand;
+        ing.price = item.price;
+        ing.qty = item.qty;
+        ing.unit = item.unit;
+        ing.basePrice = item.basePrice;
+        ing.baseUnit = item.baseUnit;
+        showToast(`"${item.name}" 품목으로 매칭 연동되었습니다.`, 'success');
+    }
+    renderRecipeIngredientsTable();
+}
+
+function openQuickItemModal(ingId, rawName, baseUnit) {
+    document.getElementById('quick-item-temp-id').value = ingId;
+    document.getElementById('quick-item-name').value = rawName || '';
+    document.getElementById('quick-item-brand').value = '';
+    document.getElementById('quick-item-price').value = '';
+    document.getElementById('quick-item-qty').value = '';
+    document.getElementById('quick-item-unit').value = baseUnit || 'g';
+    
+    // Render existing items inside modal select dropdown
+    const selectEl = document.getElementById('quick-item-existing-select');
+    if (selectEl) {
+        let optionsHtml = '<option value="">-- 기존 품목 중에서 연결할 품목 선택 --</option>';
+        items.forEach(item => {
+            const brandDisp = getFormattedBrandDisplay(item.brand);
+            const brandStr = brandDisp ? ` [${brandDisp}]` : '';
+            optionsHtml += `<option value="${item.id}">${escapeHtml(item.name)}${escapeHtml(brandStr)} (${item.basePrice.toFixed(1)}원/${item.baseUnit})</option>`;
+        });
+        selectEl.innerHTML = optionsHtml;
+        selectEl.value = '';
+    }
+
+    document.getElementById('quick-item-modal').classList.remove('hidden');
+}
+
+function closeQuickItemModal() {
+    document.getElementById('quick-item-modal').classList.add('hidden');
+    document.getElementById('quick-item-form').reset();
+}
+
+function handleQuickItemSubmit(e) {
+    e.preventDefault();
+    const ingId = document.getElementById('quick-item-temp-id').value;
+    const existingItemId = document.getElementById('quick-item-existing-select').value;
+
+    // 1. 기존 품목으로 매칭 선택 시
+    if (existingItemId) {
+        handleIngredientMatchChange(ingId, existingItemId);
+        closeQuickItemModal();
+        return;
+    }
+
+    // 2. 신규 품목으로 등록 시
+    const name = document.getElementById('quick-item-name').value.trim();
+    const brand = document.getElementById('quick-item-brand').value.trim();
+    const price = parseFloat(document.getElementById('quick-item-price').value);
+    const qty = parseFloat(document.getElementById('quick-item-qty').value);
+    const unit = document.getElementById('quick-item-unit').value;
+
+    if (!name || isNaN(price) || isNaN(qty)) {
+        showToast('기존 품목을 선택하거나, 신규 품목의 정보(이름, 가격, 수량)를 올바르게 입력해주세요.', 'danger');
+        return;
+    }
+
+    const baseUnit = getBaseUnit(unit);
+    const basePrice = calculateBaseUnitPrice(price, qty, unit);
+
+    const newItem = {
+        id: 'item-' + Date.now(),
+        name,
+        brand,
+        price,
+        qty,
+        unit,
+        basePrice,
+        baseUnit,
+        batches: [{ price, qty, unit, createdAt: new Date().toISOString() }]
+    };
+
+    items.push(newItem);
+    saveItemsToLocalStorage();
+
+    const ing = activeRecipe.ingredients.find(i => i.id === ingId);
+    if (ing) {
+        ing.itemId = newItem.id;
+        ing.name = newItem.name;
+        ing.brand = newItem.brand;
+        ing.price = newItem.price;
+        ing.qty = newItem.qty;
+        ing.unit = newItem.unit;
+        ing.basePrice = newItem.basePrice;
+        ing.baseUnit = newItem.baseUnit;
+    }
+
+    closeQuickItemModal();
+    renderRecipeIngredientsTable();
+    showToast(`신규 품목 "${name}"이(가) 등록되어 레시피에 연결되었습니다.`, 'success');
+}
+
+function removeRecipeIngredient(id) {
+    activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => ing.id !== id && ing.itemId !== id);
+    renderRecipeIngredientsTable();
+    showToast('재료가 레시피에서 제외되었습니다.', 'success');
 }
 
 function renderRecipeIngredientsTable() {
     const tbody = document.getElementById('recipe-ingredients-tbody');
+    const summaryBox = document.getElementById('recipe-included-summary-box');
     
-    if (activeRecipe.ingredients.length === 0) {
+    // Update top included ingredients summary badges
+    if (summaryBox) {
+        if (activeRecipe.ingredients.length > 0) {
+            const chipsHtml = activeRecipe.ingredients.map(ing => {
+                const item = items.find(i => i.id === ing.itemId);
+                const name = ing.name || (item ? item.name : '미등록');
+                const brandDisp = getFormattedBrandDisplay(ing.brand || (item ? item.brand : ''));
+                const brandStr = brandDisp ? ` ${brandDisp}` : '';
+                const unit = item ? item.baseUnit : (ing.baseUnit || 'g');
+                return `<div class="included-ing-badge">
+                    <span>${escapeHtml(name)}${escapeHtml(brandStr)}</span>
+                    <strong>${formatNumber(ing.usageQty)}${unit}</strong>
+                </div>`;
+            }).join('');
+
+            summaryBox.style.display = 'block';
+            summaryBox.innerHTML = `
+                <div class="recipe-included-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span>🍳 레시피 포함 품목 목록 (총 ${activeRecipe.ingredients.length}개)</span>
+                </div>
+                <div class="recipe-included-chips">
+                    ${chipsHtml}
+                </div>
+            `;
+        } else {
+            summaryBox.style.display = 'none';
+            summaryBox.innerHTML = '';
+        }
+    }
+
+    // Split ingredients into general ingredients vs packaging items (EA)
+    const generalIngs = activeRecipe.ingredients.filter(ing => {
+        const item = items.find(i => i.id === ing.itemId);
+        return !(item && item.baseUnit === 'EA');
+    });
+    
+    const packagingIngs = activeRecipe.ingredients.filter(ing => {
+        const item = items.find(i => i.id === ing.itemId);
+        return item && item.baseUnit === 'EA';
+    });
+
+    if (generalIngs.length === 0) {
         tbody.innerHTML = `
             <tr class="empty-table-row">
                 <td colspan="6" class="text-center text-muted py-8">
-                    레시피에 추가된 재료가 없습니다. 위에서 재료를 선택해 추가해보세요.
+                    레시피에 추가된 식자재가 없습니다. 위에서 품목을 선택해보세요.
                 </td>
             </tr>
         `;
-        renderRecipeSummary();
-        return;
+    } else {
+        tbody.innerHTML = generalIngs.map((ing, idx) => {
+            const ingId = ing.id || ('ing-idx-' + idx);
+            ing.id = ingId;
+            const item = items.find(i => i.id === ing.itemId);
+
+            if (item) {
+                const fifoPrice = calculateFifoUnitPrice(item, ing.usageQty);
+                const cost = fifoPrice * ing.usageQty;
+                const baseUnit = item.baseUnit || ing.baseUnit || 'g';
+                const brandDisp = getFormattedBrandDisplay(item.brand);
+                
+                return `
+                    <tr data-ing-id="${ingId}" data-item-id="${item.id}">
+                        <td>
+                            <div class="ingredient-item-title-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span class="ingredient-item-name" style="font-weight: 700; font-size: 15px; color: var(--text-primary);">
+                                    ${escapeHtml(item.name)}
+                                </span>
+                                ${brandDisp ? `<span class="item-brand-txt" style="font-size: 12px; color: var(--accent-primary); font-weight: 600; background: rgba(99, 102, 241, 0.1); padding: 2px 8px; border-radius: 6px;">${escapeHtml(brandDisp)}</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="text-right text-muted">${formatNumber(item.qty)}${item.unit} / ${formatNumber(item.price)}원</td>
+                        <td class="text-right">
+                            ${fifoPrice.toFixed(2)}원/${baseUnit}
+                            <span class="fifo-unit-badge">선입선출</span>
+                        </td>
+                        <td class="text-right">
+                            <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                <input type="number" class="ingredient-usage-input" data-ing-id="${ingId}" value="${ing.usageQty}" min="0.001" step="any"
+                                    style="width: 90px; height: 34px; padding: 4px 8px; text-align: right; font-size: 14px; font-weight: 600; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-input); color: var(--text-primary);">
+                                <span style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">${baseUnit}</span>
+                            </div>
+                        </td>
+                        <td class="text-right" style="font-weight: 700; color: var(--accent-success);">${formatNumber(Math.round(cost))}원</td>
+                        <td class="text-center">
+                            <button class="ingredient-row-delete-btn" data-ing-id="${ingId}" data-item-id="${item.id}" title="제외">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                const rawName = ing.rawName || ing.name || '미등록 품목';
+                const baseUnit = ing.baseUnit || 'g';
+
+                return `
+                    <tr data-ing-id="${ingId}">
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div style="font-weight: 700; font-size: 14px; color: var(--accent-danger);">
+                                    📝 미등록 품목: ${escapeHtml(rawName)}
+                                </div>
+                                <div>
+                                    <button type="button" class="unregistered-item-btn" data-ing-id="${ingId}" data-raw-name="${escapeHtml(rawName)}" data-base-unit="${baseUnit}">
+                                        ➕ "${escapeHtml(rawName)}" 신규 품목 등록
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-right text-muted">-</td>
+                        <td class="text-right text-muted" style="color: #f59e0b; font-weight: 500;">단가 미등록</td>
+                        <td class="text-right">
+                            <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                <input type="number" class="ingredient-usage-input" data-ing-id="${ingId}" value="${ing.usageQty}" min="0.001" step="any"
+                                    style="width: 90px; height: 34px; padding: 4px 8px; text-align: right; font-size: 14px; font-weight: 600; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-input); color: var(--text-primary);">
+                                <span style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">${baseUnit}</span>
+                            </div>
+                        </td>
+                        <td class="text-right" style="font-weight: 700; color: var(--text-muted);">0원</td>
+                        <td class="text-center">
+                            <button class="ingredient-row-delete-btn" data-ing-id="${ingId}" title="제외">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        }).join('');
     }
 
-    tbody.innerHTML = activeRecipe.ingredients.map(ing => {
-        const item = items.find(i => i.id === ing.itemId);
-        
-        // Extract snapshot properties with fallbacks
-        const basePrice = ing.basePrice !== undefined ? ing.basePrice : (item ? item.basePrice : 0);
-        const baseUnit = ing.baseUnit || (item ? item.baseUnit : '');
-        const name = ing.name || (item ? item.name : '삭제된 품목');
-        const brand = ing.brand || (item ? item.brand : '');
-        const qty = ing.qty !== undefined ? ing.qty : (item ? item.qty : 0);
-        const unit = ing.unit || (item ? item.unit : '');
-        const price = ing.price !== undefined ? ing.price : (item ? item.price : 0);
-
-        const cost = basePrice * ing.usageQty;
-        const brandHtml = brand ? `<span class="item-brand-txt">${escapeHtml(brand)}</span>` : '';
-
-        if (!item && ing.basePrice === undefined) {
-            // Backward compatibility for deleted items without snapshots
-            return `
-                <tr class="error-row" data-item-id="${ing.itemId}">
-                    <td colspan="5" class="text-muted">삭제된 품목 (제거 필요)</td>
-                    <td class="text-center">
-                        <button class="ingredient-row-delete-btn" data-item-id="${ing.itemId}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                        </button>
+    // Render Packaging Table Window
+    const pkgTbody = document.getElementById('recipe-packaging-tbody');
+    if (pkgTbody) {
+        if (packagingIngs.length === 0) {
+            pkgTbody.innerHTML = `
+                <tr class="empty-table-row">
+                    <td colspan="6" class="text-center text-muted py-6">
+                        적용된 포장재가 없습니다. 품목 목록에서 포장재(EA/개) 선택 시 여기에 추가됩니다.
                     </td>
                 </tr>
             `;
+        } else {
+            pkgTbody.innerHTML = packagingIngs.map((ing, idx) => {
+                const ingId = ing.id || ('pkg-idx-' + idx);
+                const item = items.find(i => i.id === ing.itemId);
+                const fifoPrice = item ? calculateFifoUnitPrice(item, ing.usageQty) : (ing.basePrice || 0);
+                const cost = fifoPrice * ing.usageQty;
+                const brandDisp = item ? getFormattedBrandDisplay(item.brand) : '';
+                
+                return `
+                    <tr data-ing-id="${ingId}" data-item-id="${item ? item.id : ''}">
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-weight: 700; font-size: 15px; color: var(--accent-success);">
+                                    📦 ${escapeHtml(item ? item.name : ing.name)}
+                                </span>
+                                ${brandDisp ? `<span class="item-brand-txt">${escapeHtml(brandDisp)}</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="text-right text-muted">${item ? formatNumber(item.qty) + item.unit + ' / ' + formatNumber(item.price) + '원' : '-'}</td>
+                        <td class="text-right" style="font-weight: 600;">${fifoPrice.toFixed(1)}원/개</td>
+                        <td class="text-right">
+                            <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                <input type="number" class="ingredient-usage-input" data-ing-id="${ingId}" value="${ing.usageQty}" min="1" step="1"
+                                    style="width: 80px; height: 34px; padding: 4px 8px; text-align: right; font-size: 14px; font-weight: 600; border: 1px solid var(--accent-success); border-radius: 6px; background: var(--bg-input); color: var(--text-primary);">
+                                <span style="font-size: 13px; color: var(--text-secondary);">개</span>
+                            </div>
+                        </td>
+                        <td class="text-right" style="font-weight: 700; color: var(--accent-success);">${formatNumber(Math.round(cost))}원</td>
+                        <td class="text-center">
+                            <button class="ingredient-row-delete-btn" data-ing-id="${ingId}" data-item-id="${item ? item.id : ''}" title="제외">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
-
-        return `
-            <tr data-item-id="${ing.itemId}">
-                <td style="font-weight: 600;">
-                    ${escapeHtml(name)}
-                    ${brandHtml}
-                </td>
-                <td class="text-right text-muted">${formatNumber(qty)}${unit} / ${formatNumber(price)}원</td>
-                <td class="text-right">${basePrice.toFixed(2)}원/${baseUnit}</td>
-                <td class="text-right" style="font-weight: 500;">${formatNumber(ing.usageQty)} ${baseUnit}</td>
-                <td class="text-right" style="font-weight: 700; color: var(--accent-success);">${formatNumber(Math.round(cost))}원</td>
-                <td class="text-center">
-                    <button class="ingredient-row-delete-btn" data-item-id="${ing.itemId}" title="제외">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    }
 
     renderRecipeSummary();
 }
 
 function renderRecipeSummary() {
     let ingredientsCostTotal = 0;
+    let packagingCostFromItems = 0;
 
     activeRecipe.ingredients.forEach(ing => {
         const item = items.find(i => i.id === ing.itemId);
-        const basePrice = ing.basePrice !== undefined ? ing.basePrice : (item ? item.basePrice : 0);
-        ingredientsCostTotal += basePrice * ing.usageQty;
+        if (item) {
+            const fifoPrice = calculateFifoUnitPrice(item, ing.usageQty);
+            if (item.baseUnit === 'EA') {
+                packagingCostFromItems += fifoPrice * ing.usageQty;
+            } else {
+                ingredientsCostTotal += fifoPrice * ing.usageQty;
+            }
+        } else if (ing.basePrice) {
+            ingredientsCostTotal += ing.basePrice * ing.usageQty;
+        }
     });
 
     ingredientsCostTotal = Math.round(ingredientsCostTotal);
-    const packagingCost = Math.round(activeRecipe.packagingCost);
+    const manualPackagingCost = Math.round(activeRecipe.packagingCost || 0);
+    const packagingCost = manualPackagingCost + Math.round(packagingCostFromItems);
     const totalCost = ingredientsCostTotal + packagingCost;
 
-    // Update Dashboard values
     document.getElementById('ingredients-cost-total').textContent = formatNumber(ingredientsCostTotal);
     document.getElementById('packaging-cost-total').textContent = formatNumber(packagingCost);
     document.getElementById('recipe-total-cost').textContent = formatNumber(totalCost);
@@ -911,11 +1638,25 @@ function renderSavedRecipesList() {
             day: '2-digit'
         });
 
+        const ingredientsBadgesHtml = recipe.ingredients.map(ing => {
+            const item = items.find(i => i.id === ing.itemId);
+            const name = ing.name || (item ? item.name : '미등록 품목');
+            const brandDisp = getFormattedBrandDisplay(ing.brand || (item ? item.brand : ''));
+            const brandStr = brandDisp ? ` ${brandDisp}` : '';
+            const unit = item ? item.baseUnit : (ing.baseUnit || 'g');
+            return `<span class="recipe-ing-tag" style="background: var(--bg-input); border: 1px solid var(--border-color); padding: 3px 8px; border-radius: 6px; font-size: 12px; color: var(--text-primary); font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                ${escapeHtml(name)}${escapeHtml(brandStr)} <strong>${formatNumber(ing.usageQty)}${unit}</strong>
+            </span>`;
+        }).join('');
+
         gridHtml += `
             <div class="recipe-db-card" data-id="${recipe.id}">
                 <div class="recipe-db-info">
                     <h3>${escapeHtml(recipe.name)}</h3>
                     <span class="recipe-db-date">저장일: ${formattedDate}</span>
+                </div>
+                <div class="recipe-db-ingredients-tags" style="display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0;">
+                    ${ingredientsBadgesHtml}
                 </div>
                 <div class="recipe-db-cost-row">
                     <span class="recipe-db-label">총 원가:</span>
@@ -1007,40 +1748,49 @@ function initCredentials() {
 }
 
 function checkLoginState() {
-    const isLoggedIn = sessionStorage.getItem('rc_logged_in') === 'true' || localStorage.getItem('rc_logged_in') === 'true';
+    const isLoggedIn = localStorage.getItem('rc_logged_in') === 'true';
+    const loginContainer = document.getElementById('login-container');
+    const appContainer = document.getElementById('app-container');
+    
     if (isLoggedIn) {
-        document.getElementById('login-container').classList.add('hidden');
-        document.getElementById('app-container').classList.remove('hidden');
+        if (loginContainer) {
+            loginContainer.classList.add('hidden');
+            loginContainer.style.display = 'none';
+        }
+        if (appContainer) {
+            appContainer.classList.remove('hidden');
+            appContainer.style.display = 'block';
+        }
         renderAll();
     } else {
-        document.getElementById('login-container').classList.remove('hidden');
-        document.getElementById('app-container').classList.add('hidden');
+        if (loginContainer) {
+            loginContainer.classList.remove('hidden');
+            loginContainer.style.display = 'flex';
+        }
+        if (appContainer) {
+            appContainer.classList.add('hidden');
+            appContainer.style.display = 'none';
+        }
     }
 }
 
 function handleLoginSubmit(e) {
-    e.preventDefault();
-    const idInput = document.getElementById('login-id').value;
-    const pwInput = document.getElementById('login-pw').value;
-    const rememberMe = document.getElementById('remember-me').checked;
-
+    if (e && e.preventDefault) e.preventDefault();
+    
+    const idInput = document.getElementById('login-id');
+    const pwInput = document.getElementById('login-pw');
+    const inputId = idInput ? idInput.value.trim() : '';
+    const inputPw = pwInput ? pwInput.value.trim() : '';
+    
     const savedId = localStorage.getItem('rc_user_id') || 'admin';
     const savedPw = localStorage.getItem('rc_user_pw') || 'admin';
-
-    if (idInput === savedId && pwInput === savedPw) {
-        if (rememberMe) {
-            localStorage.setItem('rc_logged_in', 'true');
-        } else {
-            sessionStorage.setItem('rc_logged_in', 'true');
-        }
-        
-        // Reset form inputs
-        document.getElementById('login-id').value = '';
-        document.getElementById('login-pw').value = '';
-        document.getElementById('remember-me').checked = false;
-
+    
+    if (inputId === savedId && inputPw === savedPw) {
+        localStorage.setItem('rc_logged_in', 'true');
         checkLoginState();
         showToast('성공적으로 로그인했습니다.', 'success');
+        if (idInput) idInput.value = '';
+        if (pwInput) pwInput.value = '';
     } else {
         showToast('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
     }
@@ -1048,10 +1798,9 @@ function handleLoginSubmit(e) {
 
 function handleLogout() {
     if (confirm('로그아웃 하시겠습니까?')) {
-        sessionStorage.removeItem('rc_logged_in');
         localStorage.removeItem('rc_logged_in');
         checkLoginState();
-        showToast('로그아웃 되었습니다.', 'success');
+        showToast('로그아웃 되었습니다.', 'primary');
     }
 }
 

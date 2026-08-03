@@ -64,6 +64,29 @@
     transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
+.hidden {
+    display: none !important;
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    background: var(--bg-app);
+}
+
+.login-card {
+    background: var(--bg-pane);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow-lg);
+}
+
 body {
     background-color: var(--bg-app);
     color: var(--text-primary);
@@ -958,8 +981,9 @@ button svg * {
     }
 }
 
-/* Collapsible Saved Recipes DB Card */
-.saved-recipes-card {
+/* Collapsible Saved Recipes DB Card & Item Form Card */
+.saved-recipes-card,
+.item-form-card {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -967,7 +991,12 @@ button svg * {
     display: none;
 }
 
-.saved-recipes-card.collapsed .collapse-icon {
+.item-form-card.collapsed .item-form-expandable {
+    display: none;
+}
+
+.saved-recipes-card.collapsed .collapse-icon,
+.item-form-card.collapsed .collapse-icon {
     transform: rotate(-90deg);
 }
 
@@ -1206,3 +1235,246 @@ button svg * {
         margin-bottom: 6px;
     }
 }
+
+/* Chat Recipe Quick Input Box Styling */
+.chat-recipe-box {
+    background: rgba(99, 102, 241, 0.03);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-recipe-box:focus-within {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.chat-recipe-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.chat-recipe-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+.badge.accent {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent-primary);
+}
+
+#chat-recipe-input {
+    width: 100%;
+    min-height: 240px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+
+#chat-recipe-input:focus {
+    border-color: var(--accent-primary);
+}
+
+.chat-recipe-actions {
+    margin-top: 10px;
+}
+
+/* Table Item Select & Unregistered Badges */
+.item-match-select {
+    width: 100%;
+    min-width: 160px;
+    height: 36px;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
+}
+
+.item-match-select.unmatched {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.unregistered-item-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--accent-danger);
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.unregistered-item-btn:hover {
+    background: var(--accent-danger);
+    color: #ffffff;
+}
+
+.fifo-unit-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-success);
+    margin-left: 4px;
+}
+
+/* Visible Clickable Item Chips List */
+.recipe-items-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.item-chip-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.item-chip-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
+}
+
+.item-chip-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #ffffff;
+}
+
+.item-chip-btn.active .chip-price,
+.item-chip-btn.active .chip-brand {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.chip-brand {
+    color: var(--accent-primary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.chip-price {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.selected-item-display-badge {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+/* Included Ingredients Summary Box */
+.recipe-included-summary-box {
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.recipe-included-header {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.recipe-included-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.included-ing-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.included-ing-badge strong {
+    color: var(--accent-success);
+}
+
+/* Collapsible Cards Styling */
+.item-form-card.collapsed #item-form-expandable {
+    display: none !important;
+}
+
+.item-form-card.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.saved-recipes-card.collapsed #recipes-list-container {
+    display: none !important;
+}
+
+.saved-recipes-card.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+

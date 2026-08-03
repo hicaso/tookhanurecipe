@@ -22,10 +22,13 @@ while ($listener.IsListening) {
         $request = $context.Request
         $response = $context.Response
         
-        # Add CORS Headers
+        # Add CORS & No-Cache Headers
         $response.Headers.Add("Access-Control-Allow-Origin", "*")
         $response.Headers.Add("Access-Control-Allow-Headers", "*")
         $response.Headers.Add("Access-Control-Allow-Methods", "*")
+        $response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+        $response.Headers.Add("Pragma", "no-cache")
+        $response.Headers.Add("Expires", "0")
         
         # Handle Preflight OPTIONS Request
         if ($request.HttpMethod -eq "OPTIONS") {
