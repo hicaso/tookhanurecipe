@@ -76,9 +76,60 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- 서버 및 로컬 이중 데이터 보존 레이어 (손실 없는 복구 & 즉시 저장) ---
 let _saveTimer = null;
 
+// --- IndexedDB & 저장소 영구 지속성 헬퍼 ---
+function initIDB() {
+    return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+            const req = indexedDB.open('RecipeCostDB', 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('store')) {
+                    db.createObjectStore('store');
+                }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = () => resolve(null);
+        } catch (e) {
+            resolve(null);
+        }
+    });
+}
+
+async function saveToIndexedDB(payload) {
+    try {
+        const db = await initIDB();
+        if (!db) return;
+        const tx = db.transaction('store', 'readwrite');
+        tx.objectStore('store').put(payload, 'backup_data');
+    } catch (e) {
+        console.warn('[RC] IndexedDB 쓰기 실패:', e);
+    }
+}
+
+async function loadFromIndexedDB() {
+    try {
+        const db = await initIDB();
+        if (!db) return null;
+        return new Promise((resolve) => {
+            const tx = db.transaction('store', 'readonly');
+            const req = tx.objectStore('store').get('backup_data');
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+        });
+    } catch (e) {
+        return null;
+    }
+}
+
 // 브라우저 저장소 사용 가능 여부 확인
 function checkBrowserStorage() {
     try {
+        if (navigator.storage && navigator.storage.persist) {
+            navigator.storage.persist().then(granted => {
+                console.log(`[RC] 영구 저장소(persist) 요청 결과: ${granted}`);
+            }).catch(() => {});
+        }
         const testKey = '__rc_storage_test__';
         localStorage.setItem(testKey, '1');
         localStorage.removeItem(testKey);
@@ -102,7 +153,7 @@ function isServerAvailable() {
     return backendEnabled && !isStaticHost;
 }
 
-// localStorage 캐시 동기 업데이트 (PC 로컬 통합 저장소 + 전역 키 동시 기록)
+// localStorage & IndexedDB 캐시 동기 업데이트 (PC 로컬 통합 저장소 + 전역 키 + IDB 동시 기록)
 function updateLocalCache() {
     const userId = getCurrentUserId() || 'local_user';
     try {
@@ -116,7 +167,12 @@ function updateLocalCache() {
         const payloadStr = JSON.stringify(payload);
         localStorage.setItem(`rc_cache_${userId}`, payloadStr);
         localStorage.setItem('rc_cache_local', payloadStr); // 마지막 로그인 계정의 동일 브라우저 안전 백업
-        localStorage.setItem('rc_storage_version', '3');
+        localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes)); // 3중 전역 보관
+        localStorage.setItem('rc_items', JSON.stringify(items)); // 3중 전역 보관
+        localStorage.setItem('rc_storage_version', '10');
+
+        // IndexedDB에도 동시 백업
+        saveToIndexedDB(payload);
     } catch(e) {
         console.warn('[RC] 로컬 캐시 쓰기 실패:', e);
     }
@@ -235,6 +291,12 @@ async function loadAndReconcileUserData(userId) {
         if (legacyI) legacyItems = JSON.parse(legacyI);
     } catch (e) {}
 
+    // 1-4. IndexedDB 2차 안전 백업 읽기
+    let idbData = null;
+    try {
+        idbData = await loadFromIndexedDB();
+    } catch (e) {}
+
     // 2. 서버 파일 데이터 불러오기 (서버가 존재하는 모드에서만)
     let serverData = null;
     if (isServerAvailable()) {
@@ -279,16 +341,17 @@ async function loadAndReconcileUserData(userId) {
         }
     };
 
-    const hasAccountData = !!localData || !!serverData;
-
+    // 무조건 존재하는 모든 소스의 레시피/품목 수집 (100% 무손실 복구)
     collectRecipes(defaultRecipes);
-    if (!hasAccountData) collectRecipes(legacyRecipes); // 구버전 데이터는 최초 1회 이전용
+    collectRecipes(legacyRecipes);
+    if (idbData && Array.isArray(idbData.recipes)) collectRecipes(idbData.recipes);
     if (pcBackupData && Array.isArray(pcBackupData.recipes)) collectRecipes(pcBackupData.recipes);
     if (localData && Array.isArray(localData.recipes)) collectRecipes(localData.recipes);
     if (serverData && Array.isArray(serverData.recipes)) collectRecipes(serverData.recipes);
 
     collectItems(defaultItems);
-    if (!hasAccountData) collectItems(legacyItems); // 구버전 데이터는 최초 1회 이전용
+    collectItems(legacyItems);
+    if (idbData && Array.isArray(idbData.items)) collectItems(idbData.items);
     if (pcBackupData && Array.isArray(pcBackupData.items)) collectItems(pcBackupData.items);
     if (localData && Array.isArray(localData.items)) collectItems(localData.items);
     if (serverData && Array.isArray(serverData.items)) collectItems(serverData.items);
@@ -296,6 +359,7 @@ async function loadAndReconcileUserData(userId) {
     // 작업 중 레시피 최신본 선택
     let activeRecipeCandidate = null;
     if (localData && localData.activeRecipe) activeRecipeCandidate = localData.activeRecipe;
+    else if (idbData && idbData.activeRecipe) activeRecipeCandidate = idbData.activeRecipe;
     else if (pcBackupData && pcBackupData.activeRecipe) activeRecipeCandidate = pcBackupData.activeRecipe;
     else if (serverData && serverData.activeRecipe) activeRecipeCandidate = serverData.activeRecipe;
 
