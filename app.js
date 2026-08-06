@@ -78,7 +78,7 @@ let _saveTimer = null;
 // localStorage 캐시 동기 업데이트
 function updateLocalCache() {
     const userId = getCurrentUserId();
-    if (!userId) return;
+    if (!userId || !_sessionDataLoaded) return;
     try {
         const payload = {
             userId,
@@ -96,7 +96,7 @@ function updateLocalCache() {
 // 서버 디스크 파일(data/{userId}.json) 즉시 저장 (async)
 async function saveToServer() {
     const userId = getCurrentUserId();
-    if (!userId || localStorage.getItem('rc_logged_in') !== 'true') return false;
+    if (!userId || !_sessionDataLoaded || localStorage.getItem('rc_logged_in') !== 'true') return false;
     const payload = {
         userId,
         items,
@@ -161,7 +161,7 @@ function saveActiveRecipeToLocalStorage(isImmediate = false) {
 // 즉시 전체 저장 (페이지 이탈/종료 시)
 function saveDataOnly() {
     const userId = getCurrentUserId();
-    if (!userId || localStorage.getItem('rc_logged_in') !== 'true') return;
+    if (!userId || !_sessionDataLoaded || localStorage.getItem('rc_logged_in') !== 'true') return;
     updateLocalCache();
     const payload = JSON.stringify({ userId, items, recipes: savedRecipes, activeRecipe, savedAt: new Date().toISOString() });
     try {
@@ -173,12 +173,14 @@ function saveDataOnly() {
 
 // 스마트 데이터 복구 및 동기화 (로컬 캐시 + 서버 파일 무손실 병합)
 async function loadAndReconcileUserData(userId) {
-    console.log(`[RC] 사용자 데이터 동기화 시작: "${userId}"`);
+    const cleanUserId = (userId || '').trim().toLowerCase();
+    console.log(`[RC] 사용자 데이터 동기화 시작: "${cleanUserId}"`);
+    _sessionDataLoaded = false;
     
     // 1. 로컬 캐시 읽기
     let localData = null;
     try {
-        const cachedRaw = localStorage.getItem(`rc_cache_${userId}`);
+        const cachedRaw = localStorage.getItem(`rc_cache_${cleanUserId}`);
         if (cachedRaw) localData = JSON.parse(cachedRaw);
     } catch (e) {
         console.warn('[RC] 로컬 캐시 읽기 실패:', e);
@@ -187,7 +189,7 @@ async function loadAndReconcileUserData(userId) {
     // 2. 서버 파일 데이터 불러오기
     let serverData = null;
     try {
-        const resp = await fetch(`/api/load?userId=${encodeURIComponent(userId)}`);
+        const resp = await fetch(`/api/load?userId=${encodeURIComponent(cleanUserId)}`);
         if (resp.ok) {
             const json = await resp.json();
             if (json && (Array.isArray(json.items) || Array.isArray(json.recipes))) {
@@ -260,6 +262,8 @@ async function loadAndReconcileUserData(userId) {
     activeRecipe = (mergedActiveRecipe && Array.isArray(mergedActiveRecipe.ingredients))
         ? mergedActiveRecipe
         : { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
+
+    _sessionDataLoaded = true; // Mark session data as fully loaded BEFORE saving local cache
 
     // 로컬과 서버 모두에 병합 완료된 데이터 동시 보관
     updateLocalCache();
@@ -1918,7 +1922,8 @@ function expandSavedRecipesDB() {
 let _sessionDataLoaded = false;
 
 function getCurrentUserId() {
-    return localStorage.getItem('rc_current_user') || '';
+    const raw = localStorage.getItem('rc_current_user') || '';
+    return raw.trim().toLowerCase();
 }
 
 function checkLoginState() {
@@ -1935,7 +1940,6 @@ function checkLoginState() {
         if (appContainer) { appContainer.classList.remove('hidden'); appContainer.style.display = 'block'; }
 
         if (!_sessionDataLoaded) {
-            _sessionDataLoaded = true;
             loadAndReconcileUserData(userId);
         } else {
             renderAll();
@@ -1953,14 +1957,17 @@ async function handleLoginSubmit(e) {
 
     const idInput = document.getElementById('login-id');
     const pwInput = document.getElementById('login-pw');
-    const inputId = idInput ? idInput.value.trim() : '';
+    const rawId = idInput ? idInput.value.trim() : '';
     const inputPw = pwInput ? pwInput.value.trim() : '';
 
-    if (!inputId || !inputPw) {
+    if (!rawId || !inputPw) {
         showToast('아이디와 비밀번호를 입력해주세요.', 'danger');
         return;
     }
 
+    const inputId = rawId.toLowerCase();
+
+    // 1. 서버 인증 시도 (백엔드 서버 실행 중일 때)
     try {
         const resp = await fetch('/api/auth', {
             method: 'POST',
@@ -1988,7 +1995,27 @@ async function handleLoginSubmit(e) {
         console.warn('[RC] 서버 인증 실패 (오프라인/깃허브 페이지 모드로 전환):', err);
     }
 
-    // 서버가 없는 환경(GitHub Pages, 백엔드 서버 미실행 등)에서 오프라인 모드로 로그인 허용 및 진행
+    // 2. 서버가 없는 환경(GitHub Pages 모드) 오프라인 계정 로직
+    let offlineUsers = {};
+    try {
+        const storedUsers = localStorage.getItem('rc_offline_users');
+        if (storedUsers) offlineUsers = JSON.parse(storedUsers);
+    } catch (e) {
+        offlineUsers = {};
+    }
+
+    if (offlineUsers[inputId]) {
+        if (offlineUsers[inputId] !== inputPw) {
+            showToast('비밀번호가 올바르지 않습니다.', 'danger');
+            return;
+        }
+    } else {
+        offlineUsers[inputId] = inputPw;
+        try {
+            localStorage.setItem('rc_offline_users', JSON.stringify(offlineUsers));
+        } catch (e) {}
+    }
+
     localStorage.setItem('rc_current_user', inputId);
     localStorage.setItem('rc_logged_in', 'true');
     _sessionDataLoaded = false;
@@ -2004,6 +2031,18 @@ function handleLogout() {
         saveToServer(); // 서버 파일에도 저장
         localStorage.removeItem('rc_logged_in');
         _sessionDataLoaded = false;
+        
+        // 메모리 변수 초기화로 계정 간 데이터 유출 차단
+        items = [];
+        savedRecipes = [];
+        activeRecipe = {
+            id: null,
+            loadedName: '',
+            name: '새 레시피',
+            packagingCost: 0,
+            ingredients: []
+        };
+        
         checkLoginState();
         showToast('로그아웃 되었습니다.', 'primary');
     }
