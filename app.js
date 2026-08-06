@@ -75,10 +75,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- 서버 및 로컬 이중 데이터 보존 레이어 (손실 없는 복구 & 즉시 저장) ---
 let _saveTimer = null;
 
-// localStorage 캐시 동기 업데이트
+// 백엔드 API 서버 동작 여부 판단 (GitHub Pages, file:// 모드 시 fetch API 호출 생략)
+function isServerAvailable() {
+    if (window.location.hostname.includes('github.io') || window.location.protocol === 'file:') {
+        return false;
+    }
+    return true;
+}
+
+// localStorage 캐시 동기 업데이트 (계정별 캐시 + PC 통합 백업 + 레거시 전역 키 동시 기록)
 function updateLocalCache() {
-    const userId = getCurrentUserId();
-    if (!userId || !_sessionDataLoaded) return;
+    const userId = getCurrentUserId() || 'local_user';
+    if (!_sessionDataLoaded) return;
     try {
         const payload = {
             userId,
@@ -87,7 +95,11 @@ function updateLocalCache() {
             activeRecipe,
             savedAt: new Date().toISOString()
         };
-        localStorage.setItem(`rc_cache_${userId}`, JSON.stringify(payload));
+        const payloadStr = JSON.stringify(payload);
+        localStorage.setItem(`rc_cache_${userId}`, payloadStr);
+        localStorage.setItem('rc_cache_local', payloadStr); // PC 로컬 통합 안전 백업
+        localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes)); // 구버전/전역 호환
+        localStorage.setItem('rc_items', JSON.stringify(items)); // 구버전/전역 호환
     } catch(e) {
         console.warn('[RC] 로컬 캐시 쓰기 실패:', e);
     }
@@ -95,6 +107,7 @@ function updateLocalCache() {
 
 // 서버 디스크 파일(data/{userId}.json) 즉시 저장 (async)
 async function saveToServer() {
+    if (!isServerAvailable()) return false;
     const userId = getCurrentUserId();
     if (!userId || !_sessionDataLoaded || localStorage.getItem('rc_logged_in') !== 'true') return false;
     const payload = {
@@ -163,104 +176,115 @@ function saveDataOnly() {
     const userId = getCurrentUserId();
     if (!userId || !_sessionDataLoaded || localStorage.getItem('rc_logged_in') !== 'true') return;
     updateLocalCache();
-    const payload = JSON.stringify({ userId, items, recipes: savedRecipes, activeRecipe, savedAt: new Date().toISOString() });
-    try {
-        navigator.sendBeacon('/api/save', new Blob([payload], { type: 'application/json' }));
-    } catch(e) {
-        saveToServer();
+    if (isServerAvailable()) {
+        const payload = JSON.stringify({ userId, items, recipes: savedRecipes, activeRecipe, savedAt: new Date().toISOString() });
+        try {
+            navigator.sendBeacon('/api/save', new Blob([payload], { type: 'application/json' }));
+        } catch(e) {
+            saveToServer();
+        }
     }
 }
 
-// 스마트 데이터 복구 및 동기화 (로컬 캐시 + 서버 파일 무손실 병합)
+// 스마트 데이터 복구 및 동기화 (로컬 캐시 + PC 백업 + 전역 레거시 키 + 서버 파일 무손실 병합)
 async function loadAndReconcileUserData(userId) {
-    const cleanUserId = (userId || '').trim().toLowerCase();
+    const cleanUserId = (userId || '').trim().toLowerCase() || 'local_user';
     console.log(`[RC] 사용자 데이터 동기화 시작: "${cleanUserId}"`);
     _sessionDataLoaded = false;
     
-    // 1. 로컬 캐시 읽기
+    // 1. 해당 계정 로컬 캐시 읽기
     let localData = null;
     try {
         const cachedRaw = localStorage.getItem(`rc_cache_${cleanUserId}`);
         if (cachedRaw) localData = JSON.parse(cachedRaw);
-    } catch (e) {
-        console.warn('[RC] 로컬 캐시 읽기 실패:', e);
-    }
+    } catch (e) {}
 
-    // 2. 서버 파일 데이터 불러오기
-    let serverData = null;
+    // 1-2. PC 전체 로컬 백업 읽기
+    let pcBackupData = null;
     try {
-        const resp = await fetch(`/api/load?userId=${encodeURIComponent(cleanUserId)}`);
-        if (resp.ok) {
-            const json = await resp.json();
-            if (json && (Array.isArray(json.items) || Array.isArray(json.recipes))) {
-                serverData = json;
-            }
-        }
-    } catch (e) {
-        console.warn('[RC] 서버 불러오기 실패:', e.message);
-    }
+        const pcRaw = localStorage.getItem('rc_cache_local');
+        if (pcRaw) pcBackupData = JSON.parse(pcRaw);
+    } catch (e) {}
 
-    // 3. 무손실 병합 (Reconciliation)
-    let mergedItems = [];
-    let mergedRecipes = [];
-    let mergedActiveRecipe = null;
+    // 1-3. 구버전 전역 키 (rc_recipes, rc_items) 호환 백업 체크
+    let legacyRecipes = null;
+    let legacyItems = null;
+    try {
+        const legacyR = localStorage.getItem('rc_recipes');
+        if (legacyR) legacyRecipes = JSON.parse(legacyR);
+        const legacyI = localStorage.getItem('rc_items');
+        if (legacyI) legacyItems = JSON.parse(legacyI);
+    } catch (e) {}
 
-    if (!localData && !serverData) {
-        console.log('[RC] 저장된 데이터 없음 -> 기본 템플릿 사용');
-        mergedItems = [...defaultItems];
-        mergedRecipes = [...defaultRecipes];
-        mergedActiveRecipe = { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
-    } else if (localData && !serverData) {
-        console.log('[RC] 로컬 캐시 데이터 사용 (서버 파일 생성 전)');
-        mergedItems = Array.isArray(localData.items) ? localData.items : [...defaultItems];
-        mergedRecipes = Array.isArray(localData.recipes) ? localData.recipes : [...defaultRecipes];
-        mergedActiveRecipe = localData.activeRecipe || { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
-    } else if (!localData && serverData) {
-        console.log('[RC] 서버 파일 데이터 사용');
-        mergedItems = Array.isArray(serverData.items) ? serverData.items : [...defaultItems];
-        mergedRecipes = Array.isArray(serverData.recipes) ? serverData.recipes : [...defaultRecipes];
-        mergedActiveRecipe = serverData.activeRecipe || { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
-    } else {
-        console.log('[RC] 로컬 캐시와 서버 파일 무손실 교차 병합 진행');
-        
-        // 레시피 병합: ID 기반으로 양쪽 모두 보존
-        const recipeMap = new Map();
-        (serverData.recipes || []).forEach(r => recipeMap.set(r.id, r));
-        (localData.recipes || []).forEach(r => {
-            if (!recipeMap.has(r.id)) {
-                recipeMap.set(r.id, r);
-            } else {
-                const serverR = recipeMap.get(r.id);
-                const localDate = new Date(r.createdAt || 0).getTime();
-                const serverDate = new Date(serverR.createdAt || 0).getTime();
-                if (localDate >= serverDate) {
-                    recipeMap.set(r.id, r);
+    // 2. 서버 파일 데이터 불러오기 (서버가 존재하는 모드에서만)
+    let serverData = null;
+    if (isServerAvailable()) {
+        try {
+            const resp = await fetch(`/api/load?userId=${encodeURIComponent(cleanUserId)}`);
+            if (resp.ok) {
+                const json = await resp.json();
+                if (json && (Array.isArray(json.items) || Array.isArray(json.recipes))) {
+                    serverData = json;
                 }
             }
-        });
-        mergedRecipes = Array.from(recipeMap.values());
-
-        // 품목 병합: ID 기반 양쪽 합집합
-        const itemMap = new Map();
-        (serverData.items || []).forEach(i => itemMap.set(i.id, i));
-        (localData.items || []).forEach(i => itemMap.set(i.id, i));
-        mergedItems = Array.from(itemMap.values());
-
-        // 작업 중 레시피 선택 (최근 savedAt 기준)
-        const localTime = new Date(localData.savedAt || 0).getTime();
-        const serverTime = new Date(serverData.savedAt || 0).getTime();
-        if (localTime >= serverTime) {
-            mergedActiveRecipe = localData.activeRecipe || serverData.activeRecipe;
-        } else {
-            mergedActiveRecipe = serverData.activeRecipe || localData.activeRecipe;
-        }
+        } catch (e) {}
     }
 
+    // 3. 무손실 종합 합집합 병합 (Reconciliation)
+    // 레시피: 기본 템플릿 + 레거시 전역키 + PC 백업 + 계정 캐시 + 서버 파일 중 모든 유효 레시피 집계
+    const recipeMap = new Map();
+    const collectRecipes = (list) => {
+        if (Array.isArray(list)) {
+            list.forEach(r => {
+                if (r && r.id) {
+                    if (!recipeMap.has(r.id)) {
+                        recipeMap.set(r.id, r);
+                    } else {
+                        const existing = recipeMap.get(r.id);
+                        const existingDate = new Date(existing.createdAt || 0).getTime();
+                        const newDate = new Date(r.createdAt || 0).getTime();
+                        if (newDate >= existingDate) {
+                            recipeMap.set(r.id, r);
+                        }
+                    }
+                }
+            });
+        }
+    };
+
+    collectRecipes(defaultRecipes);
+    collectRecipes(legacyRecipes);
+    if (pcBackupData && Array.isArray(pcBackupData.recipes)) collectRecipes(pcBackupData.recipes);
+    if (localData && Array.isArray(localData.recipes)) collectRecipes(localData.recipes);
+    if (serverData && Array.isArray(serverData.recipes)) collectRecipes(serverData.recipes);
+
+    // 품목: 모든 저장소에서 고유 ID 기반으로 합집합 수집
+    const itemMap = new Map();
+    const collectItems = (list) => {
+        if (Array.isArray(list)) {
+            list.forEach(i => {
+                if (i && i.id) itemMap.set(i.id, i);
+            });
+        }
+    };
+
+    collectItems(defaultItems);
+    collectItems(legacyItems);
+    if (pcBackupData && Array.isArray(pcBackupData.items)) collectItems(pcBackupData.items);
+    if (localData && Array.isArray(localData.items)) collectItems(localData.items);
+    if (serverData && Array.isArray(serverData.items)) collectItems(serverData.items);
+
+    // 작업 중 레시피 최신본 선택
+    let activeRecipeCandidate = null;
+    if (localData && localData.activeRecipe) activeRecipeCandidate = localData.activeRecipe;
+    else if (pcBackupData && pcBackupData.activeRecipe) activeRecipeCandidate = pcBackupData.activeRecipe;
+    else if (serverData && serverData.activeRecipe) activeRecipeCandidate = serverData.activeRecipe;
+
     // 메모리 상태 업데이트
-    items = mergedItems;
-    savedRecipes = mergedRecipes;
-    activeRecipe = (mergedActiveRecipe && Array.isArray(mergedActiveRecipe.ingredients))
-        ? mergedActiveRecipe
+    items = Array.from(itemMap.values());
+    savedRecipes = Array.from(recipeMap.values());
+    activeRecipe = (activeRecipeCandidate && Array.isArray(activeRecipeCandidate.ingredients))
+        ? activeRecipeCandidate
         : { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
 
     _sessionDataLoaded = true; // Mark session data as fully loaded BEFORE saving local cache
@@ -270,7 +294,7 @@ async function loadAndReconcileUserData(userId) {
     await saveToServer();
     
     renderAll();
-    console.log(`[RC] ✅ 무손실 복구 및 동기화 완료: 품목 ${items.length}개, 레시피 ${savedRecipes.length}개`);
+    console.log(`[RC] ✅ PC 무손실 복구 및 동기화 완료: 품목 ${items.length}개, 레시피 ${savedRecipes.length}개`);
 }
 
 // --- Theme Management ---
