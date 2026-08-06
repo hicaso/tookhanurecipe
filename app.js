@@ -37,7 +37,7 @@ const defaultRecipes = [
             { itemId: 'def-salt', usageQty: 1, name: '정제염', brand: '임시', price: 19880, qty: 20000, unit: 'g', basePrice: 0.994, baseUnit: 'g' },
             { itemId: 'def-water', usageQty: 500, name: '정제수', brand: '임시', price: 1000, qty: 2, unit: 'L', basePrice: 0.50, baseUnit: 'ml' }
         ],
-        createdAt: new Date().toISOString()
+        createdAt: '2026-01-01T00:00:00.000Z'
     }
 ];
 
