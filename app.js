@@ -61,6 +61,7 @@ function getFormattedBrandDisplay(brandStr) {
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[RC] DOMContentLoaded - starting app');
+    checkBrowserStorage();
     initTheme();
     initEventListeners();
     checkLoginState();
@@ -75,12 +76,30 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- 서버 및 로컬 이중 데이터 보존 레이어 (손실 없는 복구 & 즉시 저장) ---
 let _saveTimer = null;
 
-// 백엔드 API 서버 동작 여부 판단 (GitHub Pages, file:// 모드 시 fetch API 호출 생략)
-function isServerAvailable() {
-    if (window.location.hostname.includes('github.io') || window.location.protocol === 'file:') {
+// 브라우저 저장소 사용 가능 여부 확인
+function checkBrowserStorage() {
+    try {
+        const testKey = '__rc_storage_test__';
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+        console.log(`[RC] localStorage 사용 가능: ${window.location.origin || window.location.href}`);
+        return true;
+    } catch (error) {
+        console.error('[RC] localStorage를 사용할 수 없습니다.', error);
+        setTimeout(() => {
+            showToast('브라우저 저장소가 차단되어 저장할 수 없습니다. 시크릿 모드·사이트 데이터 차단 설정을 확인해주세요.', 'danger');
+        }, 0);
         return false;
     }
-    return true;
+}
+
+// 백엔드는 명시적으로 켠 경우에만 사용한다.
+// GitHub Pages와 file://에서는 항상 브라우저 localStorage만 사용한다.
+function isServerAvailable() {
+    const backendEnabled = window.RC_BACKEND_ENABLED === true;
+    const isStaticHost = window.location.protocol === 'file:' ||
+        window.location.hostname.endsWith('github.io');
+    return backendEnabled && !isStaticHost;
 }
 
 // localStorage 캐시 동기 업데이트 (PC 로컬 통합 저장소 + 전역 키 동시 기록)
@@ -96,9 +115,8 @@ function updateLocalCache() {
         };
         const payloadStr = JSON.stringify(payload);
         localStorage.setItem(`rc_cache_${userId}`, payloadStr);
-        localStorage.setItem('rc_cache_local', payloadStr); // PC 로컬 통합 안전 백업
-        localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes)); // 구버전/전역 호환
-        localStorage.setItem('rc_items', JSON.stringify(items)); // 구버전/전역 호환
+        localStorage.setItem('rc_cache_local', payloadStr); // 마지막 로그인 계정의 동일 브라우저 안전 백업
+        localStorage.setItem('rc_storage_version', '3');
     } catch(e) {
         console.warn('[RC] 로컬 캐시 쓰기 실패:', e);
     }
@@ -200,7 +218,11 @@ async function loadAndReconcileUserData(userId) {
     let pcBackupData = null;
     try {
         const pcRaw = localStorage.getItem('rc_cache_local');
-        if (pcRaw) pcBackupData = JSON.parse(pcRaw);
+        if (pcRaw) {
+            const parsed = JSON.parse(pcRaw);
+            const backupUserId = String(parsed?.userId || '').trim().toLowerCase();
+            if (!backupUserId || backupUserId === cleanUserId) pcBackupData = parsed;
+        }
     } catch (e) {}
 
     // 1-3. 구버전 전역 키 (rc_recipes, rc_items) 호환 백업 체크
@@ -257,32 +279,19 @@ async function loadAndReconcileUserData(userId) {
         }
     };
 
+    const hasAccountData = !!localData || !!serverData;
+
     collectRecipes(defaultRecipes);
-    collectRecipes(legacyRecipes);
+    if (!hasAccountData) collectRecipes(legacyRecipes); // 구버전 데이터는 최초 1회 이전용
     if (pcBackupData && Array.isArray(pcBackupData.recipes)) collectRecipes(pcBackupData.recipes);
     if (localData && Array.isArray(localData.recipes)) collectRecipes(localData.recipes);
     if (serverData && Array.isArray(serverData.recipes)) collectRecipes(serverData.recipes);
 
     collectItems(defaultItems);
-    collectItems(legacyItems);
+    if (!hasAccountData) collectItems(legacyItems); // 구버전 데이터는 최초 1회 이전용
     if (pcBackupData && Array.isArray(pcBackupData.items)) collectItems(pcBackupData.items);
     if (localData && Array.isArray(localData.items)) collectItems(localData.items);
     if (serverData && Array.isArray(serverData.items)) collectItems(serverData.items);
-
-    // Scan all other local storage rc_cache_* keys on this browser
-    try {
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('rc_cache_')) {
-                const raw = localStorage.getItem(key);
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (parsed && Array.isArray(parsed.recipes)) collectRecipes(parsed.recipes);
-                    if (parsed && Array.isArray(parsed.items)) collectItems(parsed.items);
-                }
-            }
-        }
-    } catch(e) {}
 
     // 작업 중 레시피 최신본 선택
     let activeRecipeCandidate = null;
@@ -708,6 +717,7 @@ function initEventListeners() {
             saveDataOnly();
         }
     });
+    window.addEventListener('pagehide', saveDataOnly);
 }
 
 // --- Item Master Collapsible Helper Functions ---
@@ -2001,32 +2011,33 @@ async function handleLoginSubmit(e) {
 
     const inputId = rawId.toLowerCase();
 
-    // 1. 서버 인증 시도 (백엔드 서버 실행 중일 때)
-    try {
-        const resp = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: inputId, pw: inputPw })
-        });
-        if (resp.ok) {
-            const result = await resp.json();
-            if (result.ok) {
-                localStorage.setItem('rc_current_user', inputId);
-                localStorage.setItem('rc_logged_in', 'true');
-                _sessionDataLoaded = false;
-                if (idInput) idInput.value = '';
-                if (pwInput) pwInput.value = '';
-                checkLoginState();
-                const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
-                showToast(msg, 'success');
-                return;
-            } else {
+    // 1. 백엔드가 명시적으로 활성화된 환경에서만 서버 인증 시도
+    if (isServerAvailable()) {
+        try {
+            const resp = await fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: inputId, pw: inputPw })
+            });
+            if (resp.ok) {
+                const result = await resp.json();
+                if (result.ok) {
+                    localStorage.setItem('rc_current_user', inputId);
+                    localStorage.setItem('rc_logged_in', 'true');
+                    _sessionDataLoaded = false;
+                    if (idInput) idInput.value = '';
+                    if (pwInput) pwInput.value = '';
+                    checkLoginState();
+                    const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
+                    showToast(msg, 'success');
+                    return;
+                }
                 showToast(result.msg || '아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
                 return;
             }
+        } catch (err) {
+            console.warn('[RC] 서버 인증 실패, 브라우저 저장 모드로 전환:', err);
         }
-    } catch (err) {
-        console.warn('[RC] 서버 인증 실패 (오프라인/깃허브 페이지 모드로 전환):', err);
     }
 
     // 2. 서버가 없는 환경(GitHub Pages 모드) 오프라인 계정 로직
@@ -2098,29 +2109,48 @@ async function handlePwChangeSubmit(e) {
     }
 
     const userId = getCurrentUserId();
-    // 현재 비밀번호 확인 (서버 인증)
-    try {
-        const verifyResp = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: userId, pw: currentPw })
-        });
-        const verifyResult = await verifyResp.json();
-        if (!verifyResult.ok) {
-            showToast('현재 비밀번호가 올바르지 않습니다.', 'danger');
+
+    if (isServerAvailable()) {
+        try {
+            const verifyResp = await fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: userId, pw: currentPw })
+            });
+            const verifyResult = await verifyResp.json();
+            if (!verifyResult.ok) {
+                showToast('현재 비밀번호가 올바르지 않습니다.', 'danger');
+                return;
+            }
+            await fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: userId, pw: newPw, changePw: true, oldPw: currentPw })
+            });
+            closePwChangeModal();
+            showToast('비밀번호가 성공적으로 변경되었습니다.', 'success');
+            return;
+        } catch(err) {
+            showToast('서버 오류로 비밀번호를 변경하지 못했습니다.', 'danger');
             return;
         }
-        // 새 비밀번호로 변경 (서버에 등록)
-        await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: userId, pw: newPw, changePw: true, oldPw: currentPw })
-        });
-        closePwChangeModal();
-        showToast('비밀번호가 성공적으로 변경되었습니다.', 'success');
-    } catch(err) {
-        showToast('서버 오류로 비밀번호를 변경하지 못했습니다.', 'danger');
     }
+
+    // GitHub Pages / 로컬 파일: 이 브라우저의 오프라인 계정 비밀번호 변경
+    let offlineUsers = {};
+    try {
+        offlineUsers = JSON.parse(localStorage.getItem('rc_offline_users') || '{}');
+    } catch (e) {}
+
+    if (offlineUsers[userId] !== currentPw) {
+        showToast('현재 비밀번호가 올바르지 않습니다.', 'danger');
+        return;
+    }
+
+    offlineUsers[userId] = newPw;
+    localStorage.setItem('rc_offline_users', JSON.stringify(offlineUsers));
+    closePwChangeModal();
+    showToast('이 브라우저에 저장된 비밀번호가 변경되었습니다.', 'success');
 }
 
 // --- Data Backup & Restore (JSON Export / Import) ---
