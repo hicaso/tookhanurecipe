@@ -83,10 +83,9 @@ function isServerAvailable() {
     return true;
 }
 
-// localStorage 캐시 동기 업데이트 (계정별 캐시 + PC 통합 백업 + 레거시 전역 키 동시 기록)
+// localStorage 캐시 동기 업데이트 (PC 로컬 통합 저장소 + 전역 키 동시 기록)
 function updateLocalCache() {
     const userId = getCurrentUserId() || 'local_user';
-    if (!_sessionDataLoaded) return;
     try {
         const payload = {
             userId,
@@ -173,10 +172,9 @@ function saveActiveRecipeToLocalStorage(isImmediate = false) {
 
 // 즉시 전체 저장 (페이지 이탈/종료 시)
 function saveDataOnly() {
-    const userId = getCurrentUserId();
-    if (!userId || !_sessionDataLoaded || localStorage.getItem('rc_logged_in') !== 'true') return;
     updateLocalCache();
     if (isServerAvailable()) {
+        const userId = getCurrentUserId() || 'local_user';
         const payload = JSON.stringify({ userId, items, recipes: savedRecipes, activeRecipe, savedAt: new Date().toISOString() });
         try {
             navigator.sendBeacon('/api/save', new Blob([payload], { type: 'application/json' }));
@@ -192,14 +190,13 @@ async function loadAndReconcileUserData(userId) {
     console.log(`[RC] 사용자 데이터 동기화 시작: "${cleanUserId}"`);
     _sessionDataLoaded = false;
     
-    // 1. 해당 계정 로컬 캐시 읽기
+    // 1. 해당 계정 로컬 캐시 및 PC 전체 백업 읽기
     let localData = null;
     try {
         const cachedRaw = localStorage.getItem(`rc_cache_${cleanUserId}`);
         if (cachedRaw) localData = JSON.parse(cachedRaw);
     } catch (e) {}
 
-    // 1-2. PC 전체 로컬 백업 읽기
     let pcBackupData = null;
     try {
         const pcRaw = localStorage.getItem('rc_cache_local');
@@ -231,7 +228,6 @@ async function loadAndReconcileUserData(userId) {
     }
 
     // 3. 무손실 종합 합집합 병합 (Reconciliation)
-    // 레시피: 기본 템플릿 + 레거시 전역키 + PC 백업 + 계정 캐시 + 서버 파일 중 모든 유효 레시피 집계
     const recipeMap = new Map();
     const collectRecipes = (list) => {
         if (Array.isArray(list)) {
@@ -252,13 +248,6 @@ async function loadAndReconcileUserData(userId) {
         }
     };
 
-    collectRecipes(defaultRecipes);
-    collectRecipes(legacyRecipes);
-    if (pcBackupData && Array.isArray(pcBackupData.recipes)) collectRecipes(pcBackupData.recipes);
-    if (localData && Array.isArray(localData.recipes)) collectRecipes(localData.recipes);
-    if (serverData && Array.isArray(serverData.recipes)) collectRecipes(serverData.recipes);
-
-    // 품목: 모든 저장소에서 고유 ID 기반으로 합집합 수집
     const itemMap = new Map();
     const collectItems = (list) => {
         if (Array.isArray(list)) {
@@ -268,11 +257,32 @@ async function loadAndReconcileUserData(userId) {
         }
     };
 
+    collectRecipes(defaultRecipes);
+    collectRecipes(legacyRecipes);
+    if (pcBackupData && Array.isArray(pcBackupData.recipes)) collectRecipes(pcBackupData.recipes);
+    if (localData && Array.isArray(localData.recipes)) collectRecipes(localData.recipes);
+    if (serverData && Array.isArray(serverData.recipes)) collectRecipes(serverData.recipes);
+
     collectItems(defaultItems);
     collectItems(legacyItems);
     if (pcBackupData && Array.isArray(pcBackupData.items)) collectItems(pcBackupData.items);
     if (localData && Array.isArray(localData.items)) collectItems(localData.items);
     if (serverData && Array.isArray(serverData.items)) collectItems(serverData.items);
+
+    // Scan all other local storage rc_cache_* keys on this browser
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('rc_cache_')) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && Array.isArray(parsed.recipes)) collectRecipes(parsed.recipes);
+                    if (parsed && Array.isArray(parsed.items)) collectItems(parsed.items);
+                }
+            }
+        }
+    } catch(e) {}
 
     // 작업 중 레시피 최신본 선택
     let activeRecipeCandidate = null;
@@ -287,9 +297,9 @@ async function loadAndReconcileUserData(userId) {
         ? activeRecipeCandidate
         : { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
 
-    _sessionDataLoaded = true; // Mark session data as fully loaded BEFORE saving local cache
+    _sessionDataLoaded = true;
 
-    // 로컬과 서버 모두에 병합 완료된 데이터 동시 보관
+    // 로컬 통합 저장소와 서버에 동시 보관
     updateLocalCache();
     await saveToServer();
     
@@ -2055,18 +2065,6 @@ function handleLogout() {
         saveToServer(); // 서버 파일에도 저장
         localStorage.removeItem('rc_logged_in');
         _sessionDataLoaded = false;
-        
-        // 메모리 변수 초기화로 계정 간 데이터 유출 차단
-        items = [];
-        savedRecipes = [];
-        activeRecipe = {
-            id: null,
-            loadedName: '',
-            name: '새 레시피',
-            packagingCost: 0,
-            ingredients: []
-        };
-        
         checkLoginState();
         showToast('로그아웃 되었습니다.', 'primary');
     }
