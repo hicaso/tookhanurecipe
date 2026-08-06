@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkLoginState();
     // 안전망 자동 저장: 10초마다 데이터 백업
     setInterval(() => {
-        if (localStorage.getItem('rc_logged_in') === 'true') {
+        if (isUserLoggedIn()) {
             saveDataOnly();
         }
     }, 10000);
@@ -144,13 +144,20 @@ function checkBrowserStorage() {
     }
 }
 
-// 백엔드는 명시적으로 켠 경우에만 사용한다.
+// 백엔드는 명시적으로 켠 경우 또는 local http/https 서버 호스트에서 자동 활성화한다.
 // GitHub Pages와 file://에서는 항상 브라우저 localStorage만 사용한다.
 function isServerAvailable() {
-    const backendEnabled = window.RC_BACKEND_ENABLED === true;
+    if (window.RC_BACKEND_ENABLED !== undefined) {
+        return window.RC_BACKEND_ENABLED === true;
+    }
     const isStaticHost = window.location.protocol === 'file:' ||
         window.location.hostname.endsWith('github.io');
-    return backendEnabled && !isStaticHost;
+    return !isStaticHost;
+}
+
+// 로그인 상태 통합 검증 (sessionStorage 또는 localStorage)
+function isUserLoggedIn() {
+    return sessionStorage.getItem('rc_logged_in') === 'true' || localStorage.getItem('rc_logged_in') === 'true';
 }
 
 // localStorage & IndexedDB 캐시 동기 업데이트 (PC 로컬 통합 저장소 + 전역 키 + IDB 동시 기록)
@@ -182,7 +189,7 @@ function updateLocalCache() {
 async function saveToServer() {
     if (!isServerAvailable()) return false;
     const userId = getCurrentUserId();
-    if (!userId || !_sessionDataLoaded || localStorage.getItem('rc_logged_in') !== 'true') return false;
+    if (!userId || !_sessionDataLoaded || !isUserLoggedIn()) return false;
     const payload = {
         userId,
         items,
@@ -1986,7 +1993,7 @@ function getCurrentUserId() {
 }
 
 function checkLoginState() {
-    const isLoggedIn = sessionStorage.getItem('rc_logged_in') === 'true';
+    const isLoggedIn = isUserLoggedIn();
     const loginContainer = document.getElementById('login-container');
     const appContainer = document.getElementById('app-container');
     const userId = getCurrentUserId();
@@ -2012,10 +2019,12 @@ function checkLoginState() {
 
 async function handleLoginSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
-    if (sessionStorage.getItem('rc_logged_in') === 'true') return;
+    if (isUserLoggedIn()) return;
 
     const idInput = document.getElementById('login-id');
     const pwInput = document.getElementById('login-pw');
+    const rememberMeCheckbox = document.getElementById('remember-me');
+    const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : true;
     const rawId = idInput ? idInput.value.trim() : '';
     const inputPw = pwInput ? pwInput.value.trim() : '';
 
@@ -2039,7 +2048,11 @@ async function handleLoginSubmit(e) {
                 if (result.ok) {
                     localStorage.setItem('rc_current_user', inputId);
                     sessionStorage.setItem('rc_logged_in', 'true');
-                    localStorage.removeItem('rc_logged_in');
+                    if (rememberMe) {
+                        localStorage.setItem('rc_logged_in', 'true');
+                    } else {
+                        localStorage.removeItem('rc_logged_in');
+                    }
                     _sessionDataLoaded = false;
                     if (idInput) idInput.value = '';
                     if (pwInput) pwInput.value = '';
@@ -2079,7 +2092,11 @@ async function handleLoginSubmit(e) {
 
     localStorage.setItem('rc_current_user', inputId);
     sessionStorage.setItem('rc_logged_in', 'true');
-    localStorage.removeItem('rc_logged_in');
+    if (rememberMe) {
+        localStorage.setItem('rc_logged_in', 'true');
+    } else {
+        localStorage.removeItem('rc_logged_in');
+    }
     _sessionDataLoaded = false;
     if (idInput) idInput.value = '';
     if (pwInput) pwInput.value = '';
