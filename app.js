@@ -2035,7 +2035,7 @@ function getCurrentUserId() {
 }
 
 function checkLoginState() {
-    const isLoggedIn = localStorage.getItem('rc_logged_in') === 'true';
+    const isLoggedIn = sessionStorage.getItem('rc_logged_in') === 'true';
     const loginContainer = document.getElementById('login-container');
     const appContainer = document.getElementById('app-container');
     const userId = getCurrentUserId();
@@ -2061,7 +2061,7 @@ function checkLoginState() {
 
 async function handleLoginSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
-    if (localStorage.getItem('rc_logged_in') === 'true') return;
+    if (sessionStorage.getItem('rc_logged_in') === 'true') return;
 
     const idInput = document.getElementById('login-id');
     const pwInput = document.getElementById('login-pw');
@@ -2087,7 +2087,8 @@ async function handleLoginSubmit(e) {
                 const result = await resp.json();
                 if (result.ok) {
                     localStorage.setItem('rc_current_user', inputId);
-                    localStorage.setItem('rc_logged_in', 'true');
+                    sessionStorage.setItem('rc_logged_in', 'true');
+                    localStorage.removeItem('rc_logged_in');
                     _sessionDataLoaded = false;
                     if (idInput) idInput.value = '';
                     if (pwInput) pwInput.value = '';
@@ -2126,7 +2127,8 @@ async function handleLoginSubmit(e) {
     }
 
     localStorage.setItem('rc_current_user', inputId);
-    localStorage.setItem('rc_logged_in', 'true');
+    sessionStorage.setItem('rc_logged_in', 'true');
+    localStorage.removeItem('rc_logged_in');
     _sessionDataLoaded = false;
     if (idInput) idInput.value = '';
     if (pwInput) pwInput.value = '';
@@ -2138,6 +2140,7 @@ function handleLogout() {
     if (confirm('로그아웃 하시겠습니까?')) {
         saveDataOnly(); // 로그아웃 전 즉시 저장
         saveToServer(); // 서버 파일에도 저장
+        sessionStorage.removeItem('rc_logged_in');
         localStorage.removeItem('rc_logged_in');
         _sessionDataLoaded = false;
         checkLoginState();
