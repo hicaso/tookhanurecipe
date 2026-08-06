@@ -515,7 +515,7 @@ function initEventListeners() {
             if (deleteBtn) {
                 const itemId = deleteBtn.dataset.itemId;
                 const ingId = deleteBtn.dataset.ingId;
-                removeRecipeIngredient(ingId || itemId);
+                removeRecipeIngredient(ingId, itemId);
                 return;
             }
 
@@ -549,8 +549,8 @@ function initEventListeners() {
                     renderRecipeSummary();
                     const item = items.find(i => i.id === ing.itemId);
                     const costCell = usageInput.closest('tr').querySelector('td:nth-last-child(2)');
-                    if (costCell && item) {
-                        const fifoPrice = calculateFifoUnitPrice(item, newQty);
+                    if (costCell) {
+                        const fifoPrice = item ? calculateFifoUnitPrice(item, newQty) : (ing.basePrice || 0);
                         const cost = fifoPrice * newQty;
                         costCell.textContent = formatNumber(Math.round(cost)) + '원';
                     }
@@ -1007,79 +1007,13 @@ function handleRecipeItemSelectChange(e) {
     }
 }
 
-function removeRecipeIngredient(itemId) {
-    activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => ing.itemId !== itemId && ing.id !== itemId);
-    saveActiveRecipeToLocalStorage();
-    renderRecipeIngredientsTable();
-    showToast('재료가 레시피에서 제외되었습니다.', 'success');
-}
-
-function clearActiveRecipeForm(silent = false) {
-    activeRecipe = {
-        id: null,
-        loadedName: '',
-        name: '새 레시피',
-        packagingCost: 0,
-        ingredients: []
-    };
-    saveActiveRecipeToLocalStorage();
-    
-    const recipeNameInput = document.getElementById('recipe-name');
-    if (recipeNameInput) recipeNameInput.value = '새 레시피';
-
-    const packagingCostInput = document.getElementById('packaging-cost');
-    if (packagingCostInput) packagingCostInput.value = 0;
-
-    const chatRecipeInput = document.getElementById('chat-recipe-input');
-    if (chatRecipeInput) chatRecipeInput.value = '';
-
-    const selectedInput = document.getElementById('selected-recipe-item-id');
-    if (selectedInput) selectedInput.value = '';
-
-    const qtyInput = document.getElementById('recipe-item-qty');
-    if (qtyInput) qtyInput.value = '';
-
-    const unitDisplay = document.getElementById('recipe-item-unit-display');
-    if (unitDisplay) unitDisplay.textContent = '-';
-
-    const displayEl = document.getElementById('selected-item-display');
-    if (displayEl) displayEl.textContent = '위에서 품목을 클릭하세요';
-
-    if (typeof renderRecipeIngredientsTable === 'function') {
-        renderRecipeIngredientsTable();
-    }
-    if (!silent) {
-        showToast('레시피가 초기화되었습니다.', 'success');
-    }
-}
-
-function resetActiveRecipe() {
-    if (confirm('레시피의 모든 내용을 초기화하시겠습니까?')) {
-        clearActiveRecipeForm(false);
-        expandSavedRecipesDB();
-    }
-}
-
-function saveActiveRecipe() {
-    const recipeNameInput = document.getElementById('recipe-name');
-    const inputName = recipeNameInput ? recipeNameInput.value.trim() : '';
-    activeRecipe.name = inputName || '새 레시피';
-    
-    const packagingCostInput = document.getElementById('packaging-cost');
-    if (packagingCostInput) {
-        activeRecipe.packagingCost = parseFloat(packagingCostInput.value) || 0;
-    }
-
-    if (activeRecipe.ingredients.length === 0) {
-        showToast('최소 한 개 이상의 재료가 필요합니다.', 'danger');
-        return;
-    }
-
     // Update ingredients snapshot values to the CURRENT master list item properties upon saving
     const updatedIngredients = activeRecipe.ingredients.map(ing => {
         const item = items.find(i => i.id === ing.itemId);
+        const ingId = ing.id || ('ing-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
         if (item) {
             return {
+                id: ingId,
                 itemId: ing.itemId,
                 usageQty: ing.usageQty,
                 name: item.name,
@@ -1091,7 +1025,10 @@ function saveActiveRecipe() {
                 baseUnit: item.baseUnit
             };
         }
-        return { ...ing };
+        return {
+            ...ing,
+            id: ingId
+        };
     });
 
     const targetName = activeRecipe.name;
@@ -1646,10 +1583,15 @@ function handleQuickItemSubmit(e) {
     showToast(`신규 품목 "${name}"이(가) 등록되어 레시피에 연결되었습니다.`, 'success');
 }
 
-function removeRecipeIngredient(id) {
-    activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => ing.id !== id && ing.itemId !== id);
+function removeRecipeIngredient(ingId, itemId) {
+    activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => {
+        if (ingId && ing.id === ingId) return false;
+        if (itemId && ing.itemId === itemId) return false;
+        return true;
+    });
+    saveActiveRecipeToLocalStorage();
     renderRecipeIngredientsTable();
-    showToast('재료가 레시피에서 제외되었습니다.', 'success');
+    showToast('품목/포장재가 레시피에서 제외되었습니다.', 'success');
 }
 
 function renderRecipeIngredientsTable() {
@@ -1798,9 +1740,9 @@ function renderRecipeIngredientsTable() {
                     </td>
                 </tr>
             `;
-        } else {
             pkgTbody.innerHTML = packagingIngs.map((ing, idx) => {
-                const ingId = ing.id || ('pkg-idx-' + idx);
+                const ingId = ing.id || ('pkg-idx-' + idx + '-' + Date.now());
+                ing.id = ingId;
                 const item = items.find(i => i.id === ing.itemId);
                 const fifoPrice = item ? calculateFifoUnitPrice(item, ing.usageQty) : (ing.basePrice || 0);
                 const cost = fifoPrice * ing.usageQty;
