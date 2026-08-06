@@ -570,8 +570,8 @@ function initEventListeners() {
         }
     });
 
-    // Auth Event Listeners & Key Filter (Allow Tab, Backspace, Delete, Arrow keys, etc.)
-    const filterAuthKeys = (inputEl) => {
+    // Auth Event Listeners (Enter key to submit)
+    const setupAuthInput = (inputEl) => {
         if (!inputEl) return;
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -582,30 +582,11 @@ function initEventListeners() {
                 } else {
                     handleLoginSubmit(e);
                 }
-                return;
-            }
-            // Allow standard navigation and editing keys
-            const allowedNavigationKeys = ['Tab', 'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-            if (allowedNavigationKeys.includes(e.key)) {
-                return; // Do not block browser default action
-            }
-            // Allow modifier keys for shortcuts (Shift, Ctrl, Alt, Meta, CapsLock)
-            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta' || e.key === 'CapsLock') {
-                return;
-            }
-            // Block Space bar
-            if (e.key === ' ' || e.code === 'Space') {
-                e.preventDefault();
-                return;
-            }
-            // Only allow standard Alphanumeric characters (letters and numbers)
-            if (!/^[a-zA-Z0-9]$/.test(e.key)) {
-                e.preventDefault();
             }
         });
     };
-    filterAuthKeys(document.getElementById('login-id'));
-    filterAuthKeys(document.getElementById('login-pw'));
+    setupAuthInput(document.getElementById('login-id'));
+    setupAuthInput(document.getElementById('login-pw'));
 
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
@@ -1986,7 +1967,7 @@ async function handleLoginSubmit(e) {
             const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
             showToast(msg, 'success');
         } else {
-            showToast('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
+            showToast(result.msg || '아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
         }
     } catch (err) {
         showToast('서버 연결 오류. 서버가 실행 중인지 확인해주세요.', 'danger');

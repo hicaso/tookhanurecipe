@@ -98,45 +98,62 @@ while ($listener.IsListening) {
         # --- API: Auth (login / register / change password) ---
         if ($urlPath -eq "/api/auth" -and $request.HttpMethod -eq "POST") {
             $stream = $request.InputStream
-            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+            $enc = $request.ContentEncoding
+            if (-not $enc) { $enc = [System.Text.Encoding]::UTF8 }
+            $reader = New-Object System.IO.StreamReader($stream, $enc)
             $body = $reader.ReadToEnd()
             $reader.Close()
             $resultJson = '{"ok":false}'
             try {
                 $cred = $body | ConvertFrom-Json
-                $inputId = $cred.id
-                $inputPw = $cred.pw
-                $usersFile = Join-Path $DataDir "users.json"
-                if (Test-Path $usersFile) {
-                    $usersRaw = [System.IO.File]::ReadAllText($usersFile, [System.Text.Encoding]::UTF8)
-                    $users = $usersRaw | ConvertFrom-Json
-                } else {
+                $inputId = ("" + $cred.id).Trim()
+                $inputPw = ("" + $cred.pw).Trim()
+                if ($inputId -and $inputPw) {
+                    $usersFile = Join-Path $DataDir "users.json"
                     $users = [PSCustomObject]@{}
-                }
-                $existingPw = $users.$inputId
+                    if (Test-Path $usersFile) {
+                        $usersRaw = [System.IO.File]::ReadAllText($usersFile, [System.Text.Encoding]::UTF8)
+                        if ($usersRaw -and $usersRaw.Trim().Length -gt 0) {
+                            $parsed = $usersRaw | ConvertFrom-Json
+                            if ($parsed) { $users = $parsed }
+                        }
+                    }
 
-                if ($cred.changePw -eq $true) {
-                    $oldPw = $cred.oldPw
-                    if ($existingPw -and $existingPw -eq $oldPw) {
+                    $existingPw = $null
+                    if ($users -and $users.PSObject -and $users.PSObject.Properties) {
+                        foreach ($p in $users.PSObject.Properties) {
+                            $cleanName = $p.Name.Trim([char]65279)
+                            if ($cleanName -ieq $inputId) {
+                                $existingPw = $p.Value
+                                break
+                            }
+                        }
+                    }
+
+                    if ($cred.changePw -eq $true) {
+                        $oldPw = ("" + $cred.oldPw).Trim()
+                        if ($existingPw -and ("" + $existingPw) -eq $oldPw) {
+                            $users | Add-Member -NotePropertyName $inputId -NotePropertyValue $inputPw -Force
+                            $usersJson = $users | ConvertTo-Json
+                            [System.IO.File]::WriteAllText($usersFile, $usersJson, [System.Text.Encoding]::UTF8)
+                            $resultJson = '{"ok":true}'
+                            Write-Host ("[AUTH] " + $inputId + " password changed") -ForegroundColor Yellow
+                        } else {
+                            $resultJson = '{"ok":false,"msg":"현재 비밀번호가 일치하지 않습니다."}'
+                        }
+                    } elseif ($existingPw -and ("" + $existingPw) -eq $inputPw) {
+                        $resultJson = '{"ok":true}'
+                        Write-Host ("[AUTH] " + $inputId + " login OK") -ForegroundColor Green
+                    } elseif (-not $existingPw) {
                         $users | Add-Member -NotePropertyName $inputId -NotePropertyValue $inputPw -Force
                         $usersJson = $users | ConvertTo-Json
                         [System.IO.File]::WriteAllText($usersFile, $usersJson, [System.Text.Encoding]::UTF8)
-                        $resultJson = '{"ok":true}'
-                        Write-Host ("[AUTH] " + $inputId + " password changed") -ForegroundColor Yellow
+                        $resultJson = '{"ok":true,"isNew":true}'
+                        Write-Host ("[AUTH] " + $inputId + " new account created: " + $inputId) -ForegroundColor Yellow
                     } else {
-                        $resultJson = '{"ok":false}'
+                        $resultJson = '{"ok":false,"msg":"비밀번호가 올바르지 않습니다."}'
+                        Write-Host ("[AUTH] " + $inputId + " wrong password") -ForegroundColor Red
                     }
-                } elseif ($existingPw -and $existingPw -eq $inputPw) {
-                    $resultJson = '{"ok":true}'
-                    Write-Host ("[AUTH] " + $inputId + " login OK") -ForegroundColor Green
-                } elseif (-not $existingPw) {
-                    $users | Add-Member -NotePropertyName $inputId -NotePropertyValue $inputPw -Force
-                    $usersJson = $users | ConvertTo-Json
-                    [System.IO.File]::WriteAllText($usersFile, $usersJson, [System.Text.Encoding]::UTF8)
-                    $resultJson = '{"ok":true,"isNew":true}'
-                    Write-Host ("[AUTH] " + $inputId + " new account created") -ForegroundColor Yellow
-                } else {
-                    Write-Host ("[AUTH] " + $inputId + " wrong password") -ForegroundColor Red
                 }
             } catch {
                 Write-Host ("[AUTH] Error: " + $_) -ForegroundColor Red
