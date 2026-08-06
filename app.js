@@ -356,19 +356,10 @@ async function loadAndReconcileUserData(userId) {
     if (localData && Array.isArray(localData.items)) collectItems(localData.items);
     if (serverData && Array.isArray(serverData.items)) collectItems(serverData.items);
 
-    // 작업 중 레시피 최신본 선택
-    let activeRecipeCandidate = null;
-    if (localData && localData.activeRecipe) activeRecipeCandidate = localData.activeRecipe;
-    else if (idbData && idbData.activeRecipe) activeRecipeCandidate = idbData.activeRecipe;
-    else if (pcBackupData && pcBackupData.activeRecipe) activeRecipeCandidate = pcBackupData.activeRecipe;
-    else if (serverData && serverData.activeRecipe) activeRecipeCandidate = serverData.activeRecipe;
-
-    // 메모리 상태 업데이트
+    // 메모리 상태 업데이트 (품목/레시피 DB 복구 + 레시피 입력창은 깨끗한 널/초기화 상태 유지)
     items = Array.from(itemMap.values());
     savedRecipes = Array.from(recipeMap.values());
-    activeRecipe = (activeRecipeCandidate && Array.isArray(activeRecipeCandidate.ingredients))
-        ? activeRecipeCandidate
-        : { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
+    activeRecipe = { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
 
     _sessionDataLoaded = true;
 
@@ -1023,31 +1014,49 @@ function removeRecipeIngredient(itemId) {
     showToast('재료가 레시피에서 제외되었습니다.', 'success');
 }
 
+function clearActiveRecipeForm(silent = false) {
+    activeRecipe = {
+        id: null,
+        loadedName: '',
+        name: '새 레시피',
+        packagingCost: 0,
+        ingredients: []
+    };
+    saveActiveRecipeToLocalStorage();
+    
+    const recipeNameInput = document.getElementById('recipe-name');
+    if (recipeNameInput) recipeNameInput.value = '새 레시피';
+
+    const packagingCostInput = document.getElementById('packaging-cost');
+    if (packagingCostInput) packagingCostInput.value = 0;
+
+    const chatRecipeInput = document.getElementById('chat-recipe-input');
+    if (chatRecipeInput) chatRecipeInput.value = '';
+
+    const selectedInput = document.getElementById('selected-recipe-item-id');
+    if (selectedInput) selectedInput.value = '';
+
+    const qtyInput = document.getElementById('recipe-item-qty');
+    if (qtyInput) qtyInput.value = '';
+
+    const unitDisplay = document.getElementById('recipe-item-unit-display');
+    if (unitDisplay) unitDisplay.textContent = '-';
+
+    const displayEl = document.getElementById('selected-item-display');
+    if (displayEl) displayEl.textContent = '위에서 품목을 클릭하세요';
+
+    if (typeof renderRecipeIngredientsTable === 'function') {
+        renderRecipeIngredientsTable();
+    }
+    if (!silent) {
+        showToast('레시피가 초기화되었습니다.', 'success');
+    }
+}
+
 function resetActiveRecipe() {
     if (confirm('레시피의 모든 내용을 초기화하시겠습니까?')) {
-        activeRecipe = {
-            id: null,
-            loadedName: '',
-            name: '새 레시피',
-            packagingCost: 0,
-            ingredients: []
-        };
-        saveActiveRecipeToLocalStorage();
-        
-        document.getElementById('recipe-name').value = '새 레시피';
-        document.getElementById('packaging-cost').value = 0;
-        const selectedInput = document.getElementById('selected-recipe-item-id');
-        if (selectedInput) selectedInput.value = '';
-        const qtyInput = document.getElementById('recipe-item-qty');
-        if (qtyInput) qtyInput.value = '';
-        const unitDisplay = document.getElementById('recipe-item-unit-display');
-        if (unitDisplay) unitDisplay.textContent = '-';
-        const displayEl = document.getElementById('selected-item-display');
-        if (displayEl) displayEl.textContent = '위에서 품목을 클릭하세요';
-        
-        renderRecipeIngredientsTable();
+        clearActiveRecipeForm(false);
         expandSavedRecipesDB();
-        showToast('레시피가 초기화되었습니다.', 'success');
     }
 }
 
@@ -2140,6 +2149,7 @@ function handleLogout() {
     if (confirm('로그아웃 하시겠습니까?')) {
         saveDataOnly(); // 로그아웃 전 즉시 저장
         saveToServer(); // 서버 파일에도 저장
+        clearActiveRecipeForm(true); // 로그아웃 시 레시피 입력창 초기화
         sessionStorage.removeItem('rc_logged_in');
         localStorage.removeItem('rc_logged_in');
         _sessionDataLoaded = false;
