@@ -2019,7 +2019,6 @@ function checkLoginState() {
 
 async function handleLoginSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
-    if (isUserLoggedIn()) return;
 
     const idInput = document.getElementById('login-id');
     const pwInput = document.getElementById('login-pw');
@@ -2076,6 +2075,11 @@ async function handleLoginSubmit(e) {
         if (storedUsers) offlineUsers = JSON.parse(storedUsers);
     } catch (e) {
         offlineUsers = {};
+    }
+
+    // 기본 admin 계정 보장
+    if (!offlineUsers['admin']) {
+        offlineUsers['admin'] = 'admin';
     }
 
     if (offlineUsers[inputId]) {
