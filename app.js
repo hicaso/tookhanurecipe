@@ -60,69 +60,213 @@ function getFormattedBrandDisplay(brandStr) {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[RC] DOMContentLoaded - starting app');
     initTheme();
-    loadFromLocalStorage();
     initEventListeners();
     checkLoginState();
+    // 안전망 자동 저장: 10초마다 데이터 백업
+    setInterval(() => {
+        if (localStorage.getItem('rc_logged_in') === 'true') {
+            saveDataOnly();
+        }
+    }, 10000);
 });
 
-// --- LocalStorage Logic ---
-function loadFromLocalStorage() {
-    initCredentials();
-    
-    // Load Items (Always force ensure 8 default items exist with current values)
-    const storedItems = localStorage.getItem('rc_items');
-    let loadedItems = [];
-    if (storedItems) {
-        try {
-            const parsed = JSON.parse(storedItems);
-            if (Array.isArray(parsed)) loadedItems = parsed;
-        } catch (e) {}
-    }
-    
-    // Replace default items with updated specification
-    defaultItems.forEach(def => {
-        const idx = loadedItems.findIndex(i => i.name.trim().toLowerCase() === def.name.trim().toLowerCase());
-        if (idx > -1) {
-            loadedItems[idx] = { ...def, id: loadedItems[idx].id };
-        } else {
-            loadedItems.push(def);
-        }
-    });
-    
-    items = loadedItems;
-    localStorage.setItem('rc_items', JSON.stringify(items));
+// --- 서버 및 로컬 이중 데이터 보존 레이어 (손실 없는 복구 & 즉시 저장) ---
+let _saveTimer = null;
 
-    // Load Recipes
-    const storedRecipes = localStorage.getItem('rc_recipes');
-    if (storedRecipes) {
-        try {
-            const parsed = JSON.parse(storedRecipes);
-            if (Array.isArray(parsed)) {
-                savedRecipes = parsed;
-            } else {
-                savedRecipes = [...defaultRecipes];
-            }
-        } catch (e) {
-            savedRecipes = [...defaultRecipes];
-        }
-    } else {
-        savedRecipes = [...defaultRecipes];
+// localStorage 캐시 동기 업데이트
+function updateLocalCache() {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    try {
+        const payload = {
+            userId,
+            items,
+            recipes: savedRecipes,
+            activeRecipe,
+            savedAt: new Date().toISOString()
+        };
+        localStorage.setItem(`rc_cache_${userId}`, JSON.stringify(payload));
+    } catch(e) {
+        console.warn('[RC] 로컬 캐시 쓰기 실패:', e);
     }
-    localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes));
 }
 
-// Ensure items save triggers render and dropdown updates
-function saveItemsToLocalStorage() {
-    localStorage.setItem('rc_items', JSON.stringify(items));
+// 서버 디스크 파일(data/{userId}.json) 즉시 저장 (async)
+async function saveToServer() {
+    const userId = getCurrentUserId();
+    if (!userId || localStorage.getItem('rc_logged_in') !== 'true') return false;
+    const payload = {
+        userId,
+        items,
+        recipes: savedRecipes,
+        activeRecipe,
+        savedAt: new Date().toISOString()
+    };
+    try {
+        const resp = await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            console.log(`[RC] ✅ 서버 디스크 파일 저장 성공: data/${userId}.json (품목:${items.length}, 레시피:${savedRecipes.length})`);
+            return true;
+        }
+    } catch (e) {
+        console.warn('[RC] 서버 저장 실패:', e.message);
+    }
+    return false;
+}
+
+// 종합 데이터 저장 함수
+// isImmediate = true: 버튼 클릭 등 명시적 저장 시 즉시 파일 저장
+// isImmediate = false: 입력 중 실시간 백업용 디바운스 저장
+function saveAllData(isImmediate = false) {
+    updateLocalCache();
+    if (isImmediate) {
+        clearTimeout(_saveTimer);
+        saveToServer();
+    } else {
+        triggerServerSave();
+    }
+}
+
+function triggerServerSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => { saveToServer(); }, 1000);
+}
+
+// 품목 저장 (기본값: 즉시 파일 저장)
+function saveItemsToLocalStorage(isImmediate = true) {
+    saveAllData(isImmediate);
     renderItemsList();
     renderAvailableItemChips();
 }
 
-function saveRecipesToLocalStorage() {
-    localStorage.setItem('rc_recipes', JSON.stringify(savedRecipes));
+// 레시피 저장 (기본값: 즉시 파일 저장)
+function saveRecipesToLocalStorage(isImmediate = true) {
+    saveAllData(isImmediate);
     renderSavedRecipesList();
     updateHeaderStats();
+}
+
+// 작업중 레시피 저장 (기본값: 디바운스 자동 백업)
+function saveActiveRecipeToLocalStorage(isImmediate = false) {
+    saveAllData(isImmediate);
+}
+
+// 즉시 전체 저장 (페이지 이탈/종료 시)
+function saveDataOnly() {
+    const userId = getCurrentUserId();
+    if (!userId || localStorage.getItem('rc_logged_in') !== 'true') return;
+    updateLocalCache();
+    const payload = JSON.stringify({ userId, items, recipes: savedRecipes, activeRecipe, savedAt: new Date().toISOString() });
+    try {
+        navigator.sendBeacon('/api/save', new Blob([payload], { type: 'application/json' }));
+    } catch(e) {
+        saveToServer();
+    }
+}
+
+// 스마트 데이터 복구 및 동기화 (로컬 캐시 + 서버 파일 무손실 병합)
+async function loadAndReconcileUserData(userId) {
+    console.log(`[RC] 사용자 데이터 동기화 시작: "${userId}"`);
+    
+    // 1. 로컬 캐시 읽기
+    let localData = null;
+    try {
+        const cachedRaw = localStorage.getItem(`rc_cache_${userId}`);
+        if (cachedRaw) localData = JSON.parse(cachedRaw);
+    } catch (e) {
+        console.warn('[RC] 로컬 캐시 읽기 실패:', e);
+    }
+
+    // 2. 서버 파일 데이터 불러오기
+    let serverData = null;
+    try {
+        const resp = await fetch(`/api/load?userId=${encodeURIComponent(userId)}`);
+        if (resp.ok) {
+            const json = await resp.json();
+            if (json && (Array.isArray(json.items) || Array.isArray(json.recipes))) {
+                serverData = json;
+            }
+        }
+    } catch (e) {
+        console.warn('[RC] 서버 불러오기 실패:', e.message);
+    }
+
+    // 3. 무손실 병합 (Reconciliation)
+    let mergedItems = [];
+    let mergedRecipes = [];
+    let mergedActiveRecipe = null;
+
+    if (!localData && !serverData) {
+        console.log('[RC] 저장된 데이터 없음 -> 기본 템플릿 사용');
+        mergedItems = [...defaultItems];
+        mergedRecipes = [...defaultRecipes];
+        mergedActiveRecipe = { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
+    } else if (localData && !serverData) {
+        console.log('[RC] 로컬 캐시 데이터 사용 (서버 파일 생성 전)');
+        mergedItems = Array.isArray(localData.items) ? localData.items : [...defaultItems];
+        mergedRecipes = Array.isArray(localData.recipes) ? localData.recipes : [...defaultRecipes];
+        mergedActiveRecipe = localData.activeRecipe || { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
+    } else if (!localData && serverData) {
+        console.log('[RC] 서버 파일 데이터 사용');
+        mergedItems = Array.isArray(serverData.items) ? serverData.items : [...defaultItems];
+        mergedRecipes = Array.isArray(serverData.recipes) ? serverData.recipes : [...defaultRecipes];
+        mergedActiveRecipe = serverData.activeRecipe || { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
+    } else {
+        console.log('[RC] 로컬 캐시와 서버 파일 무손실 교차 병합 진행');
+        
+        // 레시피 병합: ID 기반으로 양쪽 모두 보존
+        const recipeMap = new Map();
+        (serverData.recipes || []).forEach(r => recipeMap.set(r.id, r));
+        (localData.recipes || []).forEach(r => {
+            if (!recipeMap.has(r.id)) {
+                recipeMap.set(r.id, r);
+            } else {
+                const serverR = recipeMap.get(r.id);
+                const localDate = new Date(r.createdAt || 0).getTime();
+                const serverDate = new Date(serverR.createdAt || 0).getTime();
+                if (localDate >= serverDate) {
+                    recipeMap.set(r.id, r);
+                }
+            }
+        });
+        mergedRecipes = Array.from(recipeMap.values());
+
+        // 품목 병합: ID 기반 양쪽 합집합
+        const itemMap = new Map();
+        (serverData.items || []).forEach(i => itemMap.set(i.id, i));
+        (localData.items || []).forEach(i => itemMap.set(i.id, i));
+        mergedItems = Array.from(itemMap.values());
+
+        // 작업 중 레시피 선택 (최근 savedAt 기준)
+        const localTime = new Date(localData.savedAt || 0).getTime();
+        const serverTime = new Date(serverData.savedAt || 0).getTime();
+        if (localTime >= serverTime) {
+            mergedActiveRecipe = localData.activeRecipe || serverData.activeRecipe;
+        } else {
+            mergedActiveRecipe = serverData.activeRecipe || localData.activeRecipe;
+        }
+    }
+
+    // 메모리 상태 업데이트
+    items = mergedItems;
+    savedRecipes = mergedRecipes;
+    activeRecipe = (mergedActiveRecipe && Array.isArray(mergedActiveRecipe.ingredients))
+        ? mergedActiveRecipe
+        : { id: null, loadedName: '', name: '새 레시피', packagingCost: 0, ingredients: [] };
+
+    // 로컬과 서버 모두에 병합 완료된 데이터 동시 보관
+    updateLocalCache();
+    await saveToServer();
+    
+    renderAll();
+    console.log(`[RC] ✅ 무손실 복구 및 동기화 완료: 품목 ${items.length}개, 레시피 ${savedRecipes.length}개`);
 }
 
 // --- Theme Management ---
@@ -299,6 +443,7 @@ function initEventListeners() {
                 const ing = activeRecipe.ingredients.find(i => i.id === ingId);
                 if (ing && !isNaN(newQty) && newQty >= 0) {
                     ing.usageQty = newQty;
+                    saveActiveRecipeToLocalStorage();
                     renderRecipeSummary();
                     const item = items.find(i => i.id === ing.itemId);
                     const costCell = usageInput.closest('tr').querySelector('td:nth-last-child(2)');
@@ -318,11 +463,13 @@ function initEventListeners() {
     // Packaging Cost inputs
     document.getElementById('packaging-cost').addEventListener('input', (e) => {
         activeRecipe.packagingCost = parseFloat(e.target.value) || 0;
+        saveActiveRecipeToLocalStorage();
         renderRecipeSummary();
     });
 
     document.getElementById('recipe-name').addEventListener('input', (e) => {
         activeRecipe.name = e.target.value || '새 레시피';
+        saveActiveRecipeToLocalStorage();
     });
 
     // Recipe Actions
@@ -423,22 +570,31 @@ function initEventListeners() {
         }
     });
 
-    // Auth Event Listeners & Key Filter (Block Space, Shift, Ctrl, Alt, etc.)
+    // Auth Event Listeners & Key Filter (Allow Tab, Backspace, Delete, Arrow keys, etc.)
     const filterAuthKeys = (inputEl) => {
         if (!inputEl) return;
         inputEl.addEventListener('keydown', (e) => {
-            // Allow essential navigation/editing keys (Backspace, Delete, Arrow keys, Enter, Tab)
-            const allowedControlKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Tab'];
-            if (allowedControlKeys.includes(e.key)) {
-                return; // allow normal operation
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const form = inputEl.closest('form');
+                if (form) {
+                    form.requestSubmit();
+                } else {
+                    handleLoginSubmit(e);
+                }
+                return;
+            }
+            // Allow standard navigation and editing keys
+            const allowedNavigationKeys = ['Tab', 'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+            if (allowedNavigationKeys.includes(e.key)) {
+                return; // Do not block browser default action
+            }
+            // Allow modifier keys for shortcuts (Shift, Ctrl, Alt, Meta, CapsLock)
+            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta' || e.key === 'CapsLock') {
+                return;
             }
             // Block Space bar
             if (e.key === ' ' || e.code === 'Space') {
-                e.preventDefault();
-                return;
-            }
-            // Block modifier keys or functional control keys (Shift, Control, Alt, Meta, CapsLock, Escape, etc.)
-            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta' || e.key === 'CapsLock' || e.key === 'Escape') {
                 e.preventDefault();
                 return;
             }
@@ -459,6 +615,23 @@ function initEventListeners() {
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    const exportBtn = document.getElementById('export-backup-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportBackupData);
+    }
+
+    const importBtn = document.getElementById('import-backup-btn');
+    const importFile = document.getElementById('import-backup-file');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', () => importFile.click());
+        importFile.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                importBackupData(e.target.files[0]);
+                e.target.value = '';
+            }
+        });
     }
 
     const pwChangeBtn = document.getElementById('pw-change-btn');
@@ -494,6 +667,16 @@ function initEventListeners() {
     if (cancelQuickModalBtn) {
         cancelQuickModalBtn.addEventListener('click', closeQuickItemModal);
     }
+
+    // Window auto-save handlers for program exit / tab change
+    window.addEventListener('beforeunload', () => {
+        saveDataOnly();
+    });
+    window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            saveDataOnly();
+        }
+    });
 }
 
 // --- Item Master Collapsible Helper Functions ---
@@ -728,62 +911,9 @@ function handleRecipeItemSelectChange(e) {
     }
 }
 
-function handleAddRecipeItem() {
-    collapseSavedRecipesDB();
-    const itemSelect = document.getElementById('recipe-item-select');
-    const itemId = itemSelect.value;
-    const qtyInput = document.getElementById('recipe-item-qty');
-    const qty = parseFloat(qtyInput.value);
-
-    if (!itemId) {
-        showToast('추가할 품목을 선택해주세요.', 'danger');
-        return;
-    }
-
-    if (isNaN(qty) || qty <= 0) {
-        showToast('사용 수량을 올바르게 입력해주세요.', 'danger');
-        return;
-    }
-
-    const item = items.find(i => i.id === itemId);
-    if (!item) return;
-
-    // Check if item already exists in recipe
-    const existingIndex = activeRecipe.ingredients.findIndex(ing => ing.itemId === itemId);
-    if (existingIndex > -1) {
-        activeRecipe.ingredients[existingIndex].usageQty += qty;
-        // Update snapshot to the current master values
-        activeRecipe.ingredients[existingIndex].name = item.name;
-        activeRecipe.ingredients[existingIndex].brand = item.brand;
-        activeRecipe.ingredients[existingIndex].price = item.price;
-        activeRecipe.ingredients[existingIndex].qty = item.qty;
-        activeRecipe.ingredients[existingIndex].unit = item.unit;
-        activeRecipe.ingredients[existingIndex].basePrice = item.basePrice;
-        activeRecipe.ingredients[existingIndex].baseUnit = item.baseUnit;
-        showToast(`이미 등록된 재료 "${item.name}"의 사용량이 합산되었습니다.`, 'success');
-    } else {
-        activeRecipe.ingredients.push({
-            itemId,
-            usageQty: qty,
-            name: item.name,
-            brand: item.brand,
-            price: item.price,
-            qty: item.qty,
-            unit: item.unit,
-            basePrice: item.basePrice,
-            baseUnit: item.baseUnit
-        });
-        showToast(`"${item.name}" 재료가 레시피에 추가되었습니다.`, 'success');
-    }
-
-    // Reset usage input
-    qtyInput.value = '';
-    
-    renderRecipeIngredientsTable();
-}
-
 function removeRecipeIngredient(itemId) {
-    activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => ing.itemId !== itemId);
+    activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => ing.itemId !== itemId && ing.id !== itemId);
+    saveActiveRecipeToLocalStorage();
     renderRecipeIngredientsTable();
     showToast('재료가 레시피에서 제외되었습니다.', 'success');
 }
@@ -791,16 +921,24 @@ function removeRecipeIngredient(itemId) {
 function resetActiveRecipe() {
     if (confirm('레시피의 모든 내용을 초기화하시겠습니까?')) {
         activeRecipe = {
+            id: null,
+            loadedName: '',
             name: '새 레시피',
             packagingCost: 0,
             ingredients: []
         };
+        saveActiveRecipeToLocalStorage();
         
         document.getElementById('recipe-name').value = '새 레시피';
         document.getElementById('packaging-cost').value = 0;
-        document.getElementById('recipe-item-select').value = '';
-        document.getElementById('recipe-item-qty').value = '';
-        document.getElementById('recipe-item-unit-display').textContent = '-';
+        const selectedInput = document.getElementById('selected-recipe-item-id');
+        if (selectedInput) selectedInput.value = '';
+        const qtyInput = document.getElementById('recipe-item-qty');
+        if (qtyInput) qtyInput.value = '';
+        const unitDisplay = document.getElementById('recipe-item-unit-display');
+        if (unitDisplay) unitDisplay.textContent = '-';
+        const displayEl = document.getElementById('selected-item-display');
+        if (displayEl) displayEl.textContent = '위에서 품목을 클릭하세요';
         
         renderRecipeIngredientsTable();
         expandSavedRecipesDB();
@@ -809,9 +947,13 @@ function resetActiveRecipe() {
 }
 
 function saveActiveRecipe() {
-    if (!activeRecipe.name || activeRecipe.name.trim() === '') {
-        showToast('레시피 이름을 입력해주세요.', 'danger');
-        return;
+    const recipeNameInput = document.getElementById('recipe-name');
+    const inputName = recipeNameInput ? recipeNameInput.value.trim() : '';
+    activeRecipe.name = inputName || '새 레시피';
+    
+    const packagingCostInput = document.getElementById('packaging-cost');
+    if (packagingCostInput) {
+        activeRecipe.packagingCost = parseFloat(packagingCostInput.value) || 0;
     }
 
     if (activeRecipe.ingredients.length === 0) {
@@ -835,40 +977,63 @@ function saveActiveRecipe() {
                 baseUnit: item.baseUnit
             };
         }
-        return { ...ing }; // Fallback to existing snapshot properties if item is deleted from master list
+        return { ...ing };
     });
 
-    const newSavedRecipe = {
-        id: 'recipe-' + Date.now(),
-        name: activeRecipe.name,
+    const targetName = activeRecipe.name;
+    
+    // Check if user is explicitly editing the currently loaded recipe (ID exists AND name is unchanged from loadedName)
+    const isEditingLoadedRecipe = activeRecipe.id && 
+                                  activeRecipe.loadedName && 
+                                  targetName === activeRecipe.loadedName;
+
+    let targetId = null;
+    let isUpdate = false;
+
+    if (isEditingLoadedRecipe) {
+        // 1. Update the existing loaded recipe (name unchanged)
+        targetId = activeRecipe.id;
+        isUpdate = true;
+    } else {
+        // 2. User changed name OR created new recipe -> ALWAYS CREATE NEW RECIPE ENTRY!
+        targetId = 'recipe-' + Date.now();
+        isUpdate = false;
+    }
+
+    const recipeToSave = {
+        id: targetId,
+        name: targetName,
         packagingCost: activeRecipe.packagingCost,
         ingredients: updatedIngredients,
         createdAt: new Date().toISOString()
     };
 
-    // Check if updating recipe with same name or save as new
-    const existingIndex = savedRecipes.findIndex(r => r.name === activeRecipe.name);
-    if (existingIndex > -1) {
-        showToast('동일한 이름의 레시피가 이미 존재합니다 (중복).', 'danger');
-        if (confirm(`동일한 이름의 레시피 "${activeRecipe.name}"이(가) 이미 존재합니다 (중복). 덮어쓰시겠습니까?`)) {
-            savedRecipes[existingIndex] = {
-                ...newSavedRecipe,
-                id: savedRecipes[existingIndex].id // keep original ID
-            };
-            activeRecipe.ingredients = JSON.parse(JSON.stringify(updatedIngredients));
-            renderRecipeIngredientsTable();
-            showToast('중복된 레시피를 성공적으로 덮어썼습니다.', 'success');
+    if (isUpdate) {
+        const existingIndex = savedRecipes.findIndex(r => r.id === targetId);
+        if (existingIndex > -1) {
+            savedRecipes[existingIndex] = recipeToSave;
         } else {
-            return;
+            savedRecipes.push(recipeToSave);
         }
     } else {
-        savedRecipes.push(newSavedRecipe);
-        activeRecipe.ingredients = JSON.parse(JSON.stringify(updatedIngredients));
-        renderRecipeIngredientsTable();
-        showToast('레시피가 성공적으로 저장되었습니다.', 'success');
+        // Always append as a brand-new independent recipe
+        savedRecipes.push(recipeToSave);
     }
 
+    // Synchronize activeRecipe state with saved record
+    activeRecipe.id = targetId;
+    activeRecipe.loadedName = targetName;
+    activeRecipe.ingredients = JSON.parse(JSON.stringify(updatedIngredients));
+
     saveRecipesToLocalStorage();
+    saveActiveRecipeToLocalStorage();
+    expandSavedRecipesDB();
+    
+    if (isUpdate) {
+        showToast(`기존 레시피 "${targetName}"이(가) 수정 저장되었습니다.`, 'success');
+    } else {
+        showToast(`새 레시피 "${targetName}"이(가) "저장된 레시피 DB"에 추가되었습니다.`, 'success');
+    }
 }
 
 function loadSavedRecipe(recipeId) {
@@ -876,11 +1041,14 @@ function loadSavedRecipe(recipeId) {
     if (!saved) return;
 
     activeRecipe = {
+        id: saved.id,
+        loadedName: saved.name,
         name: saved.name,
         packagingCost: saved.packagingCost,
         ingredients: JSON.parse(JSON.stringify(saved.ingredients)) // Freeze historical prices in activeRecipe
     };
 
+    saveActiveRecipeToLocalStorage();
     document.getElementById('recipe-name').value = activeRecipe.name;
     document.getElementById('packaging-cost').value = activeRecipe.packagingCost;
 
@@ -981,8 +1149,18 @@ function printActiveRecipe() {
 function renderAll() {
     renderItemsList();
     renderAvailableItemChips();
+
+    // Sync input fields with activeRecipe
+    const nameInput = document.getElementById('recipe-name');
+    const costInput = document.getElementById('packaging-cost');
+    if (nameInput) nameInput.value = activeRecipe.name || '새 레시피';
+    if (costInput) costInput.value = activeRecipe.packagingCost !== undefined ? activeRecipe.packagingCost : 0;
+
     renderRecipeIngredientsTable();
     renderSavedRecipesList();
+    if (savedRecipes && savedRecipes.length > 0) {
+        expandSavedRecipesDB();
+    }
 }
 
 function updateHeaderStats() {
@@ -1122,6 +1300,7 @@ function handleAddRecipeItem() {
     }
 
     qtyInput.value = '';
+    saveActiveRecipeToLocalStorage();
     renderRecipeIngredientsTable();
     showToast(`"${item.name}" 재료가 레시피에 성공적으로 추가되었습니다.`, 'success');
 }
@@ -1231,6 +1410,7 @@ function handleParseChatRecipe() {
         }
     });
     
+    saveActiveRecipeToLocalStorage();
     renderRecipeIngredientsTable();
     collapseSavedRecipesDB();
     
@@ -1634,11 +1814,13 @@ function renderSavedRecipesList() {
             ingCost += basePrice * ing.usageQty;
         });
         const totalCost = Math.round(ingCost + recipe.packagingCost);
-        const formattedDate = new Date(recipe.createdAt).toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
+        const formattedDate = (recipe.createdAt && !isNaN(new Date(recipe.createdAt).getTime()))
+            ? new Date(recipe.createdAt).toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            })
+            : '최근';
 
         const ingredientsBadgesHtml = recipe.ingredients.map(ing => {
             const item = items.find(i => i.id === ing.itemId);
@@ -1739,68 +1921,85 @@ function expandSavedRecipesDB() {
     }
 }
 
-// --- Authentication & Password Management ---
-function initCredentials() {
-    if (!localStorage.getItem('rc_user_id')) {
-        localStorage.setItem('rc_user_id', 'admin');
-    }
-    if (!localStorage.getItem('rc_user_pw')) {
-        localStorage.setItem('rc_user_pw', 'admin');
-    }
+// --- 인증 & 로그인 관리 ---
+let _sessionDataLoaded = false;
+
+function getCurrentUserId() {
+    return localStorage.getItem('rc_current_user') || '';
 }
 
 function checkLoginState() {
     const isLoggedIn = localStorage.getItem('rc_logged_in') === 'true';
     const loginContainer = document.getElementById('login-container');
     const appContainer = document.getElementById('app-container');
-    
-    if (isLoggedIn) {
-        if (loginContainer) {
-            loginContainer.classList.add('hidden');
-            loginContainer.style.display = 'none';
+    const userId = getCurrentUserId();
+
+    const userBadge = document.getElementById('user-display-badge');
+    if (userBadge && userId) userBadge.textContent = `👤 ${userId}`;
+
+    if (isLoggedIn && userId) {
+        if (loginContainer) { loginContainer.classList.add('hidden'); loginContainer.style.display = 'none'; }
+        if (appContainer) { appContainer.classList.remove('hidden'); appContainer.style.display = 'block'; }
+
+        if (!_sessionDataLoaded) {
+            _sessionDataLoaded = true;
+            loadAndReconcileUserData(userId);
+        } else {
+            renderAll();
         }
-        if (appContainer) {
-            appContainer.classList.remove('hidden');
-            appContainer.style.display = 'block';
-        }
-        renderAll();
     } else {
-        if (loginContainer) {
-            loginContainer.classList.remove('hidden');
-            loginContainer.style.display = 'flex';
-        }
-        if (appContainer) {
-            appContainer.classList.add('hidden');
-            appContainer.style.display = 'none';
-        }
+        _sessionDataLoaded = false;
+        if (loginContainer) { loginContainer.classList.remove('hidden'); loginContainer.style.display = 'flex'; }
+        if (appContainer) { appContainer.classList.add('hidden'); appContainer.style.display = 'none'; }
     }
 }
 
-function handleLoginSubmit(e) {
+async function handleLoginSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
-    
+    if (localStorage.getItem('rc_logged_in') === 'true') return;
+
     const idInput = document.getElementById('login-id');
     const pwInput = document.getElementById('login-pw');
     const inputId = idInput ? idInput.value.trim() : '';
     const inputPw = pwInput ? pwInput.value.trim() : '';
-    
-    const savedId = localStorage.getItem('rc_user_id') || 'admin';
-    const savedPw = localStorage.getItem('rc_user_pw') || 'admin';
-    
-    if (inputId === savedId && inputPw === savedPw) {
-        localStorage.setItem('rc_logged_in', 'true');
-        checkLoginState();
-        showToast('성공적으로 로그인했습니다.', 'success');
-        if (idInput) idInput.value = '';
-        if (pwInput) pwInput.value = '';
-    } else {
-        showToast('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
+
+    if (!inputId || !inputPw) {
+        showToast('아이디와 비밀번호를 입력해주세요.', 'danger');
+        return;
+    }
+
+    try {
+        const resp = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: inputId, pw: inputPw })
+        });
+        const result = await resp.json();
+
+        if (result.ok) {
+            localStorage.setItem('rc_current_user', inputId);
+            localStorage.setItem('rc_logged_in', 'true');
+            _sessionDataLoaded = false;
+            if (idInput) idInput.value = '';
+            if (pwInput) pwInput.value = '';
+            checkLoginState();
+            const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
+            showToast(msg, 'success');
+        } else {
+            showToast('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
+        }
+    } catch (err) {
+        showToast('서버 연결 오류. 서버가 실행 중인지 확인해주세요.', 'danger');
+        console.error('[RC] 로그인 오류:', err);
     }
 }
 
 function handleLogout() {
     if (confirm('로그아웃 하시겠습니까?')) {
+        saveDataOnly(); // 로그아웃 전 즉시 저장
+        saveToServer(); // 서버 파일에도 저장
         localStorage.removeItem('rc_logged_in');
+        _sessionDataLoaded = false;
         checkLoginState();
         showToast('로그아웃 되었습니다.', 'primary');
     }
@@ -1818,30 +2017,99 @@ function closePwChangeModal() {
     document.getElementById('new-pw-confirm').value = '';
 }
 
-function handlePwChangeSubmit(e) {
+async function handlePwChangeSubmit(e) {
     e.preventDefault();
     const currentPw = document.getElementById('current-pw').value;
     const newPw = document.getElementById('new-pw').value;
     const newPwConfirm = document.getElementById('new-pw-confirm').value;
 
-    const savedPw = localStorage.getItem('rc_user_pw') || 'admin';
-
-    if (currentPw !== savedPw) {
-        showToast('현재 비밀번호가 올바르지 않습니다.', 'danger');
-        return;
-    }
-
     if (newPw !== newPwConfirm) {
         showToast('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.', 'danger');
         return;
     }
-
     if (newPw.trim() === '') {
         showToast('새 비밀번호를 올바르게 입력해주세요.', 'danger');
         return;
     }
 
-    localStorage.setItem('rc_user_pw', newPw);
-    closePwChangeModal();
-    showToast('비밀번호가 성공적으로 변경되었습니다.', 'success');
+    const userId = getCurrentUserId();
+    // 현재 비밀번호 확인 (서버 인증)
+    try {
+        const verifyResp = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: userId, pw: currentPw })
+        });
+        const verifyResult = await verifyResp.json();
+        if (!verifyResult.ok) {
+            showToast('현재 비밀번호가 올바르지 않습니다.', 'danger');
+            return;
+        }
+        // 새 비밀번호로 변경 (서버에 등록)
+        await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: userId, pw: newPw, changePw: true, oldPw: currentPw })
+        });
+        closePwChangeModal();
+        showToast('비밀번호가 성공적으로 변경되었습니다.', 'success');
+    } catch(err) {
+        showToast('서버 오류로 비밀번호를 변경하지 못했습니다.', 'danger');
+    }
+}
+
+// --- Data Backup & Restore (JSON Export / Import) ---
+function exportBackupData() {
+    try {
+        const backupObj = {
+            appName: 'RecipeCost',
+            version: '2.0',
+            exportedAt: new Date().toISOString(),
+            items: items,
+            recipes: savedRecipes
+        };
+        const jsonStr = JSON.stringify(backupObj, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `recipe_cost_backup_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('데이터 백업 파일이 다운로드되었습니다.', 'success');
+    } catch (e) {
+        showToast('백업 파일 생성 중 오류가 발생했습니다.', 'danger');
+    }
+}
+
+function importBackupData(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data && (Array.isArray(data.items) || Array.isArray(data.recipes))) {
+                const itemCount = Array.isArray(data.items) ? data.items.length : 0;
+                const recipeCount = Array.isArray(data.recipes) ? data.recipes.length : 0;
+                
+                if (confirm(`백업 파일에서 품목 ${itemCount}개, 레시피 ${recipeCount}개를 복원하시겠습니까? (기존 데이터가 교체됩니다)`)) {
+                    if (Array.isArray(data.items)) items = data.items;
+                    if (Array.isArray(data.recipes)) savedRecipes = data.recipes;
+                    
+                    saveItemsToLocalStorage();
+                    saveRecipesToLocalStorage();
+                    renderAll();
+                    showToast('백업 데이터가 성공적으로 복원되었습니다!', 'success');
+                }
+            } else {
+                showToast('올바르지 않은 백업 파일 형식입니다.', 'danger');
+            }
+        } catch (err) {
+            showToast('백업 파일을 읽는 중 오류가 발생했습니다.', 'danger');
+        }
+    };
+    reader.readAsText(file);
 }

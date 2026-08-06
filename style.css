@@ -565,6 +565,17 @@ button svg * {
     gap: 16px;
 }
 
+#recipe-name {
+    border: 2px solid #ef4444 !important;
+    font-weight: 600;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#recipe-name:focus {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+
 .flex-1 {
     flex: 1;
 }
