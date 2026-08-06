@@ -570,10 +570,14 @@ function initEventListeners() {
         }
     });
 
-    // Auth Event Listeners (Enter key to submit)
+    // Auth Event Listeners (Block Spacebar & Enter key to submit)
     const setupAuthInput = (inputEl) => {
         if (!inputEl) return;
         inputEl.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                return;
+            }
             if (e.key === 'Enter') {
                 e.preventDefault();
                 const form = inputEl.closest('form');
@@ -584,9 +588,17 @@ function initEventListeners() {
                 }
             }
         });
+        inputEl.addEventListener('input', (e) => {
+            if (e.target.value.includes(' ')) {
+                e.target.value = e.target.value.replace(/\s+/g, '');
+            }
+        });
     };
     setupAuthInput(document.getElementById('login-id'));
     setupAuthInput(document.getElementById('login-pw'));
+    setupAuthInput(document.getElementById('current-pw'));
+    setupAuthInput(document.getElementById('new-pw'));
+    setupAuthInput(document.getElementById('new-pw-confirm'));
 
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
@@ -1955,24 +1967,35 @@ async function handleLoginSubmit(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: inputId, pw: inputPw })
         });
-        const result = await resp.json();
-
-        if (result.ok) {
-            localStorage.setItem('rc_current_user', inputId);
-            localStorage.setItem('rc_logged_in', 'true');
-            _sessionDataLoaded = false;
-            if (idInput) idInput.value = '';
-            if (pwInput) pwInput.value = '';
-            checkLoginState();
-            const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
-            showToast(msg, 'success');
-        } else {
-            showToast(result.msg || '아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.ok) {
+                localStorage.setItem('rc_current_user', inputId);
+                localStorage.setItem('rc_logged_in', 'true');
+                _sessionDataLoaded = false;
+                if (idInput) idInput.value = '';
+                if (pwInput) pwInput.value = '';
+                checkLoginState();
+                const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
+                showToast(msg, 'success');
+                return;
+            } else {
+                showToast(result.msg || '아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
+                return;
+            }
         }
     } catch (err) {
-        showToast('서버 연결 오류. 서버가 실행 중인지 확인해주세요.', 'danger');
-        console.error('[RC] 로그인 오류:', err);
+        console.warn('[RC] 서버 인증 실패 (오프라인/깃허브 페이지 모드로 전환):', err);
     }
+
+    // 서버가 없는 환경(GitHub Pages, 백엔드 서버 미실행 등)에서 오프라인 모드로 로그인 허용 및 진행
+    localStorage.setItem('rc_current_user', inputId);
+    localStorage.setItem('rc_logged_in', 'true');
+    _sessionDataLoaded = false;
+    if (idInput) idInput.value = '';
+    if (pwInput) pwInput.value = '';
+    checkLoginState();
+    showToast(`"${inputId}" 계정으로 로그인했습니다. (로컬/깃허브 모드)`, 'info');
 }
 
 function handleLogout() {
