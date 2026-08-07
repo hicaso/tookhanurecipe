@@ -951,7 +951,7 @@ button svg * {
 .toast-container {
     position: fixed;
     bottom: 24px;
-    right: 24px;
+    left: 24px;
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -983,7 +983,7 @@ button svg * {
 
 @keyframes slideIn {
     from {
-        transform: translateX(100%);
+        transform: translateX(-100%);
         opacity: 0;
     }
     to {

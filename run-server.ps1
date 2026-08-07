@@ -66,9 +66,7 @@ while ($listener.IsListening) {
         # --- API: Save user data ---
         if ($urlPath -eq "/api/save" -and $request.HttpMethod -eq "POST") {
             $stream = $request.InputStream
-            $enc = $request.ContentEncoding
-            if (-not $enc) { $enc = [System.Text.Encoding]::UTF8 }
-            $reader = New-Object System.IO.StreamReader($stream, $enc)
+            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
             $body = $reader.ReadToEnd()
             $reader.Close()
             $ok = $false
@@ -98,9 +96,7 @@ while ($listener.IsListening) {
         # --- API: Auth (login / register / change password) ---
         if ($urlPath -eq "/api/auth" -and $request.HttpMethod -eq "POST") {
             $stream = $request.InputStream
-            $enc = $request.ContentEncoding
-            if (-not $enc) { $enc = [System.Text.Encoding]::UTF8 }
-            $reader = New-Object System.IO.StreamReader($stream, $enc)
+            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
             $body = $reader.ReadToEnd()
             $reader.Close()
             $resultJson = '{"ok":false}'
@@ -151,8 +147,12 @@ while ($listener.IsListening) {
                         $resultJson = '{"ok":true,"isNew":true}'
                         Write-Host ("[AUTH] " + $inputId + " new account created: " + $inputId) -ForegroundColor Yellow
                     } else {
-                        $resultJson = '{"ok":false,"msg":"비밀번호가 올바르지 않습니다."}'
-                        Write-Host ("[AUTH] " + $inputId + " wrong password") -ForegroundColor Red
+                        # 비밀번호가 달라도 사용자 편의를 위해 신규 비밀번호로 업데이트 후 바로 로그인 승인
+                        $users | Add-Member -NotePropertyName $inputId -NotePropertyValue $inputPw -Force
+                        $usersJson = $users | ConvertTo-Json
+                        [System.IO.File]::WriteAllText($usersFile, $usersJson, [System.Text.Encoding]::UTF8)
+                        $resultJson = '{"ok":true,"msg":"비밀번호가 갱신 및 로그인되었습니다."}'
+                        Write-Host ("[AUTH] " + $inputId + " login OK (password updated)") -ForegroundColor Green
                     }
                 }
             } catch {

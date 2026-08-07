@@ -592,13 +592,12 @@ function initEventListeners() {
         if (!card) return;
         const id = card.dataset.id;
 
-        const loadBtn = e.target.closest('.load-recipe-btn');
         const deleteBtn = e.target.closest('.delete-recipe-btn');
-
-        if (loadBtn) {
-            loadSavedRecipe(id);
-        } else if (deleteBtn) {
+        if (deleteBtn) {
+            e.stopPropagation();
             deleteSavedRecipe(id);
+        } else {
+            loadSavedRecipe(id);
         }
     });
 
@@ -679,27 +678,13 @@ function initEventListeners() {
         }
     });
 
-    // Auth Event Listeners (Block Spacebar & Enter key to submit)
+    // Auth Event Listeners
     const setupAuthInput = (inputEl) => {
         if (!inputEl) return;
         inputEl.addEventListener('keydown', (e) => {
-            if (e.key === ' ' || e.code === 'Space') {
-                e.preventDefault();
-                return;
-            }
             if (e.key === 'Enter') {
                 e.preventDefault();
-                const form = inputEl.closest('form');
-                if (form) {
-                    form.requestSubmit();
-                } else {
-                    handleLoginSubmit(e);
-                }
-            }
-        });
-        inputEl.addEventListener('input', (e) => {
-            if (e.target.value.includes(' ')) {
-                e.target.value = e.target.value.replace(/\s+/g, '');
+                handleLoginSubmit(e);
             }
         });
     };
@@ -1014,14 +999,76 @@ function handleRecipeItemSelectChange(e) {
     }
 }
 
+function findMasterItem(ing) {
+    if (!ing) return null;
+    let item = items.find(i => String(i.id) === String(ing.itemId));
+    if (!item && ing.name) {
+        const cleanName = ing.name.trim().toLowerCase();
+        item = items.find(i => i.name && i.name.trim().toLowerCase() === cleanName);
+    }
+    return item;
+}
+
+function resetActiveRecipe() {
+    clearActiveRecipeForm(false);
+    showToast('레시피 입력 창이 초기화되었습니다.', 'info');
+}
+
+function clearActiveRecipeForm(keepToast = false) {
+    activeRecipe = {
+        id: null,
+        loadedName: '',
+        name: '새 레시피',
+        packagingCost: 0,
+        ingredients: []
+    };
+    const nameInput = document.getElementById('recipe-name');
+    const costInput = document.getElementById('packaging-cost');
+    const chatInput = document.getElementById('chat-recipe-input');
+    if (nameInput) nameInput.value = '새 레시피';
+    if (costInput) costInput.value = 0;
+    if (chatInput) chatInput.value = '';
+    
+    saveActiveRecipeToLocalStorage();
+    renderRecipeIngredientsTable();
+    renderAvailableItemChips();
+    clearSelectedRecipeItem();
+}
+
+function clearSelectedRecipeItem() {
+    const selectedInput = document.getElementById('selected-recipe-item-id');
+    if (selectedInput) selectedInput.value = '';
+    const unitDisplay = document.getElementById('recipe-item-unit-display');
+    if (unitDisplay) unitDisplay.textContent = '-';
+    const displayEl = document.getElementById('selected-item-display');
+    if (displayEl) displayEl.textContent = '위에서 품목을 클릭하세요';
+    const qtyInput = document.getElementById('recipe-item-qty');
+    if (qtyInput) qtyInput.value = '';
+}
+
+function saveActiveRecipe() {
+    const nameInput = document.getElementById('recipe-name');
+    const costInput = document.getElementById('packaging-cost');
+    if (nameInput) {
+        activeRecipe.name = nameInput.value.trim() || '새 레시피';
+    }
+    if (costInput) {
+        activeRecipe.packagingCost = parseFloat(costInput.value) || 0;
+    }
+
+    if (!activeRecipe.ingredients || activeRecipe.ingredients.length === 0) {
+        showToast('레시피에 추가된 재료가 없습니다. 재료를 최소 1개 이상 추가한 후 저장해주세요.', 'warning');
+        return;
+    }
+
     // Update ingredients snapshot values to the CURRENT master list item properties upon saving
     const updatedIngredients = activeRecipe.ingredients.map(ing => {
-        const item = items.find(i => i.id === ing.itemId);
+        const item = findMasterItem(ing);
         const ingId = ing.id || ('ing-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
         if (item) {
             return {
                 id: ingId,
-                itemId: ing.itemId,
+                itemId: item.id,
                 usageQty: ing.usageQty,
                 name: item.name,
                 brand: item.brand,
@@ -1040,23 +1087,9 @@ function handleRecipeItemSelectChange(e) {
 
     const targetName = activeRecipe.name;
     
-    // Check if user is explicitly editing the currently loaded recipe (ID exists AND name is unchanged from loadedName)
-    const isEditingLoadedRecipe = activeRecipe.id && 
-                                  activeRecipe.loadedName && 
-                                  targetName === activeRecipe.loadedName;
-
-    let targetId = null;
-    let isUpdate = false;
-
-    if (isEditingLoadedRecipe) {
-        // 1. Update the existing loaded recipe (name unchanged)
-        targetId = activeRecipe.id;
-        isUpdate = true;
-    } else {
-        // 2. User changed name OR created new recipe -> ALWAYS CREATE NEW RECIPE ENTRY!
-        targetId = 'recipe-' + Date.now();
-        isUpdate = false;
-    }
+    // 불러온 레시피와 이름이 동일할 때만 기존 레시피 수정, 이름이 바뀌거나 신규인 경우 새로운 레시피 저장
+    const isUpdate = !!(activeRecipe.id && activeRecipe.loadedName && targetName === activeRecipe.loadedName);
+    const targetId = isUpdate ? activeRecipe.id : ('recipe-' + Date.now());
 
     const recipeToSave = {
         id: targetId,
@@ -1067,15 +1100,14 @@ function handleRecipeItemSelectChange(e) {
     };
 
     if (isUpdate) {
-        const existingIndex = savedRecipes.findIndex(r => r.id === targetId);
+        const existingIndex = savedRecipes.findIndex(r => String(r.id) === String(targetId));
         if (existingIndex > -1) {
             savedRecipes[existingIndex] = recipeToSave;
         } else {
-            savedRecipes.push(recipeToSave);
+            savedRecipes.unshift(recipeToSave);
         }
     } else {
-        // Always append as a brand-new independent recipe
-        savedRecipes.push(recipeToSave);
+        savedRecipes.unshift(recipeToSave);
     }
 
     // Synchronize activeRecipe state with saved record
@@ -1085,6 +1117,7 @@ function handleRecipeItemSelectChange(e) {
 
     saveRecipesToLocalStorage();
     saveActiveRecipeToLocalStorage();
+    renderSavedRecipesList();
     expandSavedRecipesDB();
     
     if (isUpdate) {
@@ -1095,33 +1128,47 @@ function handleRecipeItemSelectChange(e) {
 }
 
 function loadSavedRecipe(recipeId) {
-    const saved = savedRecipes.find(r => r.id === recipeId);
-    if (!saved) return;
+    const saved = savedRecipes.find(r => String(r.id) === String(recipeId));
+    if (!saved) {
+        showToast('해당 레시피를 찾을 수 없습니다.', 'danger');
+        return;
+    }
 
     activeRecipe = {
         id: saved.id,
         loadedName: saved.name,
         name: saved.name,
-        packagingCost: saved.packagingCost,
-        ingredients: JSON.parse(JSON.stringify(saved.ingredients)) // Freeze historical prices in activeRecipe
+        packagingCost: saved.packagingCost !== undefined ? saved.packagingCost : 0,
+        ingredients: Array.isArray(saved.ingredients) ? JSON.parse(JSON.stringify(saved.ingredients)) : []
     };
 
     saveActiveRecipeToLocalStorage();
-    document.getElementById('recipe-name').value = activeRecipe.name;
-    document.getElementById('packaging-cost').value = activeRecipe.packagingCost;
+    
+    const nameInput = document.getElementById('recipe-name');
+    const costInput = document.getElementById('packaging-cost');
+    if (nameInput) nameInput.value = activeRecipe.name;
+    if (costInput) costInput.value = activeRecipe.packagingCost;
 
     renderRecipeIngredientsTable();
     collapseSavedRecipesDB();
-    showToast(`레시피 "${saved.name}"을(를) 불러왔습니다.`, 'success');
+
+    // Smooth scroll to recipe card so user sees loaded content
+    const recipeCard = document.querySelector('.recipe-card');
+    if (recipeCard) {
+        recipeCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    showToast(`레시피 "${saved.name}"을(를) 성공적으로 불러왔습니다.`, 'success');
 }
 
 function deleteSavedRecipe(recipeId) {
-    const saved = savedRecipes.find(r => r.id === recipeId);
+    const saved = savedRecipes.find(r => String(r.id) === String(recipeId));
     if (!saved) return;
 
     if (confirm(`레시피 "${saved.name}"을(를) 영구 삭제하시겠습니까?`)) {
-        savedRecipes = savedRecipes.filter(r => r.id !== recipeId);
+        savedRecipes = savedRecipes.filter(r => String(r.id) !== String(recipeId));
         saveRecipesToLocalStorage();
+        renderSavedRecipesList();
         showToast('레시피가 삭제되었습니다.', 'success');
     }
 }
@@ -1371,115 +1418,143 @@ function handleParseChatRecipe() {
         showToast('채팅/텍스트 형식의 레시피를 입력해주세요.', 'danger');
         return;
     }
-    
+
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
     if (lines.length === 0) return;
-    
+
     let recipeTitle = '';
-    let ingredientLines = [];
-    
-    const recipeLineIdx = lines.findIndex(l => l.includes('레시피'));
-    if (recipeLineIdx > -1) {
-        recipeTitle = lines[recipeLineIdx].replace(/레시피/g, '').trim() || lines[recipeLineIdx];
-        if (!recipeTitle.includes('레시피')) recipeTitle += ' 레시피';
-        ingredientLines = lines.filter((_, idx) => idx !== recipeLineIdx);
+    let contentText = text;
+
+    // 1. 레시피 제목 추출
+    const explicitTitleLine = lines.find(l => l.includes('레시피') && !/\d+/.test(l));
+    if (explicitTitleLine) {
+        recipeTitle = explicitTitleLine.replace(/[-*•:#]/g, '').trim();
     } else {
-        if (!/\d+\s*(g|kg|ml|L|스푼|EA)$/i.test(lines[0])) {
-            recipeTitle = lines[0];
-            ingredientLines = lines.slice(1);
+        // 첫번째 라인에 숫자가 없고 짧은 텍스트인 경우 제목으로 간주
+        const firstLine = lines[0].replace(/^[-*•:#]+/, '').trim();
+        if (firstLine && !/\d+/.test(firstLine) && firstLine.length < 30) {
+            recipeTitle = firstLine;
+            contentText = lines.slice(1).join('\n');
         } else {
-            recipeTitle = '자유 입력 레시피';
-            ingredientLines = [...lines];
+            const recipeNameInput = document.getElementById('recipe-name');
+            const currentVal = recipeNameInput ? recipeNameInput.value.trim() : '';
+            recipeTitle = (currentVal && currentVal !== '새 레시피') ? currentVal : '자유 입력 레시피';
         }
     }
-    
+
+    if (!recipeTitle) {
+        recipeTitle = '자유 입력 레시피';
+    }
+
     activeRecipe.name = recipeTitle;
-    document.getElementById('recipe-name').value = recipeTitle;
-    activeRecipe.ingredients = [];
-    
-    let addedCount = 0;
-    let unmatchedCount = 0;
-    
-    ingredientLines.forEach((line, lineIndex) => {
-        // 불필요한 기호(-, *, :, • 등) 제거
-        const cleanLine = line.replace(/^[-*•\s:]+/, '').trim();
-        // 품목명 수량 단위 파싱 정규식 (예: 돈육 후지: 100g, - 고추장 50 g, MSG 10g 등)
-        const match = cleanLine.match(/^(.+?)\s*[:=-]?\s*([\d.,]+)\s*(g|kg|ml|L|스푼|EA)$/i);
-        if (match) {
-            const rawName = match[1].trim();
-            const rawQty = parseFloat(match[2].replace(/,/g, ''));
-            const rawUnit = match[3].trim();
-            
-            if (!rawName || isNaN(rawQty)) return;
-            
-            let normUnit = rawUnit;
-            if (normUnit.toLowerCase() === 'g') normUnit = 'g';
-            if (normUnit.toLowerCase() === 'kg') normUnit = 'kg';
-            if (normUnit.toLowerCase() === 'ml') normUnit = 'ml';
-            if (normUnit.toLowerCase() === 'l') normUnit = 'L';
-            if (normUnit.toLowerCase() === 'ea') normUnit = 'EA';
-            
-            const baseUnit = getBaseUnit(normUnit);
-            const usageQtyInBaseUnit = convertToMinUnitQty(rawQty, normUnit);
-            
-            // 1. 정확한 이름 매칭 시도
-            let matchedItem = items.find(i => i.name.trim().toLowerCase() === rawName.toLowerCase());
-            
-            // 2. 정확히 일치하는 게 없을 경우 부분/유사 매칭(Fuzzy Match) 시도
-            if (!matchedItem) {
-                const cleanRaw = rawName.replace(/\s+/g, '').toLowerCase();
-                matchedItem = items.find(i => {
-                    const cleanItemName = i.name.replace(/\s+/g, '').toLowerCase();
-                    return cleanItemName.includes(cleanRaw) || cleanRaw.includes(cleanItemName);
-                });
-            }
-            
-            if (matchedItem) {
-                activeRecipe.ingredients.push({
-                    id: 'ing-' + Date.now() + '-' + lineIndex,
-                    itemId: matchedItem.id,
-                    rawName: rawName,
-                    usageQty: usageQtyInBaseUnit,
-                    name: matchedItem.name,
-                    brand: matchedItem.brand,
-                    price: matchedItem.price,
-                    qty: matchedItem.qty,
-                    unit: matchedItem.unit,
-                    basePrice: matchedItem.basePrice,
-                    baseUnit: matchedItem.baseUnit
-                });
-                addedCount++;
-            } else {
-                activeRecipe.ingredients.push({
-                    id: 'ing-' + Date.now() + '-' + lineIndex,
-                    itemId: '',
-                    rawName: rawName,
-                    usageQty: usageQtyInBaseUnit,
-                    baseUnit: baseUnit,
-                    name: rawName,
-                    brand: '',
-                    price: 0,
-                    qty: 0,
-                    unit: normUnit,
-                    basePrice: 0
-                });
-                unmatchedCount++;
-            }
+    const recipeNameInput = document.getElementById('recipe-name');
+    if (recipeNameInput) recipeNameInput.value = recipeTitle;
+
+    // 2. 품목 + 수량 + 단위 토큰 파싱 정규식
+    // 예시: "후지 1000 고추장 10000", "고추장: 50g", "고춧가루 100g", "후지 1000g"
+    const itemQtyRegex = /([가-힣a-zA-Z0-9\s()_-]+?)\s*[:=-]?\s*([\d.,]+)\s*(g|kg|ml|L|EA|스푼|개|팩|병|근)?(?=$|\s|[,;\n])/gi;
+
+    const extractedPairs = [];
+
+    // 줄 단위 혹은 전체 텍스트 매칭
+    const rawMatches = Array.from(contentText.matchAll(itemQtyRegex));
+    rawMatches.forEach(m => {
+        let rawName = m[1].replace(/^[-*•\s:]+/, '').trim();
+        const rawQtyStr = m[2];
+        let rawUnit = m[3] ? m[3].trim() : '';
+        const rawQty = parseFloat(rawQtyStr.replace(/,/g, ''));
+
+        if (rawName && !isNaN(rawQty) && rawName !== recipeTitle) {
+            extractedPairs.push({ rawName, rawQty, rawUnit });
         }
     });
-    
+
+    if (extractedPairs.length === 0) {
+        showToast('인식할 수 있는 재료 라인을 찾지 못했습니다. (예: 후지 1000 고추장 10000)', 'danger');
+        return;
+    }
+
+    activeRecipe.ingredients = [];
+    let addedCount = 0;
+    let unmatchedCount = 0;
+
+    extractedPairs.forEach((pair, idx) => {
+        const { rawName, rawQty, rawUnit } = pair;
+
+        // 1. 등록된 품목 마스터 검색 (완전 일치 또는 부분/유사 일치)
+        let matchedItem = items.find(i => i.name.trim().toLowerCase() === rawName.toLowerCase());
+
+        if (!matchedItem) {
+            const cleanRaw = rawName.replace(/\s+/g, '').toLowerCase();
+            matchedItem = items.find(i => {
+                const cleanItemName = i.name.replace(/\s+/g, '').toLowerCase();
+                return cleanItemName.includes(cleanRaw) || cleanRaw.includes(cleanItemName);
+            });
+        }
+
+        // 단위 결정 (입력 단위가 없는 경우 매칭된 품목의 기본 단위 활용)
+        let normUnit = rawUnit;
+        if (!normUnit && matchedItem) {
+            normUnit = matchedItem.baseUnit || matchedItem.unit || 'g';
+        }
+        if (!normUnit) {
+            normUnit = 'g';
+        }
+
+        if (normUnit.toLowerCase() === 'g') normUnit = 'g';
+        else if (normUnit.toLowerCase() === 'kg') normUnit = 'kg';
+        else if (normUnit.toLowerCase() === 'ml') normUnit = 'ml';
+        else if (normUnit.toLowerCase() === 'l') normUnit = 'L';
+        else if (normUnit.toLowerCase() === 'ea' || normUnit === '개' || normUnit === '팩') normUnit = 'EA';
+
+        const baseUnit = getBaseUnit(normUnit);
+        const usageQtyInBaseUnit = convertToMinUnitQty(rawQty, normUnit);
+
+        const ingId = 'ing-' + Date.now() + '-' + idx;
+
+        if (matchedItem) {
+            activeRecipe.ingredients.push({
+                id: ingId,
+                itemId: matchedItem.id,
+                rawName: rawName,
+                usageQty: usageQtyInBaseUnit,
+                name: matchedItem.name,
+                brand: matchedItem.brand,
+                price: matchedItem.price,
+                qty: matchedItem.qty,
+                unit: matchedItem.unit,
+                basePrice: matchedItem.basePrice,
+                baseUnit: matchedItem.baseUnit
+            });
+            addedCount++;
+        } else {
+            activeRecipe.ingredients.push({
+                id: ingId,
+                itemId: '',
+                rawName: rawName,
+                usageQty: usageQtyInBaseUnit,
+                baseUnit: baseUnit,
+                name: rawName,
+                brand: '',
+                price: 0,
+                qty: 0,
+                unit: normUnit,
+                basePrice: 0
+            });
+            unmatchedCount++;
+        }
+    });
+
     saveActiveRecipeToLocalStorage();
     renderRecipeIngredientsTable();
     collapseSavedRecipesDB();
-    
+
     if (addedCount > 0 || unmatchedCount > 0) {
         if (unmatchedCount > 0) {
-            showToast(`총 ${addedCount + unmatchedCount}개 재료 등록 완료! (${unmatchedCount}개 품목은 등록 품목 선택 또는 신규 등록 필요)`, 'danger');
+            showToast(`총 ${addedCount + unmatchedCount}개 재료 등록 완료! (${addedCount}개 자동 매칭, ${unmatchedCount}개 신규 등록 필요)`, 'warning');
         } else {
-            showToast(`"${recipeTitle}" 레시피가 성공적으로 등록되었습니다.`, 'success');
+            showToast(`"${recipeTitle}" 레시피의 재료 ${addedCount}개가 성공적으로 변환되었습니다!`, 'success');
         }
-    } else {
-        showToast('인식할 수 있는 재료 라인을 찾지 못했습니다. (예: 고추장 50g)', 'danger');
     }
 }
 
@@ -1592,8 +1667,8 @@ function handleQuickItemSubmit(e) {
 
 function removeRecipeIngredient(ingId, itemId) {
     activeRecipe.ingredients = activeRecipe.ingredients.filter(ing => {
-        if (ingId && ing.id === ingId) return false;
-        if (itemId && ing.itemId === itemId) return false;
+        if (ingId) return ing.id !== ingId;
+        if (itemId) return ing.itemId !== itemId;
         return true;
     });
     saveActiveRecipeToLocalStorage();
@@ -1638,13 +1713,15 @@ function renderRecipeIngredientsTable() {
 
     // Split ingredients into general ingredients vs packaging items (EA)
     const generalIngs = activeRecipe.ingredients.filter(ing => {
-        const item = items.find(i => i.id === ing.itemId);
-        return !(item && item.baseUnit === 'EA');
+        const item = findMasterItem(ing);
+        const isPkg = (item && item.baseUnit === 'EA') || ing.baseUnit === 'EA' || ing.unit === 'EA' || ing.unit === '개';
+        return !isPkg;
     });
     
     const packagingIngs = activeRecipe.ingredients.filter(ing => {
-        const item = items.find(i => i.id === ing.itemId);
-        return item && item.baseUnit === 'EA';
+        const item = findMasterItem(ing);
+        const isPkg = (item && item.baseUnit === 'EA') || ing.baseUnit === 'EA' || ing.unit === 'EA' || ing.unit === '개';
+        return isPkg;
     });
 
     if (generalIngs.length === 0) {
@@ -1659,7 +1736,7 @@ function renderRecipeIngredientsTable() {
         tbody.innerHTML = generalIngs.map((ing, idx) => {
             const ingId = ing.id || ('ing-idx-' + idx);
             ing.id = ingId;
-            const item = items.find(i => i.id === ing.itemId);
+            const item = findMasterItem(ing);
 
             if (item) {
                 const fifoPrice = calculateFifoUnitPrice(item, ing.usageQty);
@@ -1747,10 +1824,11 @@ function renderRecipeIngredientsTable() {
                     </td>
                 </tr>
             `;
+        } else {
             pkgTbody.innerHTML = packagingIngs.map((ing, idx) => {
                 const ingId = ing.id || ('pkg-idx-' + idx + '-' + Date.now());
                 ing.id = ingId;
-                const item = items.find(i => i.id === ing.itemId);
+                const item = findMasterItem(ing);
                 const fifoPrice = item ? calculateFifoUnitPrice(item, ing.usageQty) : (ing.basePrice || 0);
                 const cost = fifoPrice * ing.usageQty;
                 const brandDisp = item ? getFormattedBrandDisplay(item.brand) : '';
@@ -1794,7 +1872,7 @@ function renderRecipeSummary() {
     let packagingCostFromItems = 0;
 
     activeRecipe.ingredients.forEach(ing => {
-        const item = items.find(i => i.id === ing.itemId);
+        const item = findMasterItem(ing);
         if (item) {
             const fifoPrice = calculateFifoUnitPrice(item, ing.usageQty);
             if (item.baseUnit === 'EA') {
@@ -1802,8 +1880,14 @@ function renderRecipeSummary() {
             } else {
                 ingredientsCostTotal += fifoPrice * ing.usageQty;
             }
-        } else if (ing.basePrice) {
-            ingredientsCostTotal += ing.basePrice * ing.usageQty;
+        } else {
+            const basePrice = ing.basePrice || 0;
+            const isPkg = ing.baseUnit === 'EA' || ing.unit === 'EA';
+            if (isPkg) {
+                packagingCostFromItems += basePrice * ing.usageQty;
+            } else {
+                ingredientsCostTotal += basePrice * ing.usageQty;
+            }
         }
     });
 
@@ -1872,11 +1956,11 @@ function renderSavedRecipesList() {
     savedRecipes.forEach(recipe => {
         let ingCost = 0;
         recipe.ingredients.forEach(ing => {
-            const item = items.find(i => i.id === ing.itemId);
+            const item = findMasterItem(ing);
             const basePrice = ing.basePrice !== undefined ? ing.basePrice : (item ? item.basePrice : 0);
             ingCost += basePrice * ing.usageQty;
         });
-        const totalCost = Math.round(ingCost + recipe.packagingCost);
+        const totalCost = Math.round(ingCost + (recipe.packagingCost || 0));
         const formattedDate = (recipe.createdAt && !isNaN(new Date(recipe.createdAt).getTime()))
             ? new Date(recipe.createdAt).toLocaleDateString('ko-KR', {
                 year: 'numeric',
@@ -1886,7 +1970,7 @@ function renderSavedRecipesList() {
             : '최근';
 
         const ingredientsBadgesHtml = recipe.ingredients.map(ing => {
-            const item = items.find(i => i.id === ing.itemId);
+            const item = findMasterItem(ing);
             const name = ing.name || (item ? item.name : '미등록 품목');
             const brandDisp = getFormattedBrandDisplay(ing.brand || (item ? item.brand : ''));
             const brandStr = brandDisp ? ` ${brandDisp}` : '';
@@ -1986,10 +2070,19 @@ function expandSavedRecipesDB() {
 
 // --- 인증 & 로그인 관리 ---
 let _sessionDataLoaded = false;
+let _isLoggingIn = false;
 
 function getCurrentUserId() {
     const raw = localStorage.getItem('rc_current_user') || '';
-    return raw.trim().toLowerCase();
+    const clean = raw.trim().toLowerCase();
+    if (clean === 'null' || clean === 'undefined') return '';
+    return clean;
+}
+
+function isUserLoggedIn() {
+    const user = getCurrentUserId();
+    const loggedIn = sessionStorage.getItem('rc_logged_in') === 'true' || localStorage.getItem('rc_logged_in') === 'true';
+    return loggedIn && !!user;
 }
 
 function checkLoginState() {
@@ -2018,95 +2111,95 @@ function checkLoginState() {
 }
 
 async function handleLoginSubmit(e) {
-    if (e && e.preventDefault) e.preventDefault();
-
-    const idInput = document.getElementById('login-id');
-    const pwInput = document.getElementById('login-pw');
-    const rememberMeCheckbox = document.getElementById('remember-me');
-    const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : true;
-    const rawId = idInput ? idInput.value.trim() : '';
-    const inputPw = pwInput ? pwInput.value.trim() : '';
-
-    if (!rawId || !inputPw) {
-        showToast('아이디와 비밀번호를 입력해주세요.', 'danger');
-        return;
+    if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
     }
 
-    const inputId = rawId.toLowerCase();
+    if (_isLoggingIn) return;
+    _isLoggingIn = true;
 
-    // 1. 백엔드가 명시적으로 활성화된 환경에서만 서버 인증 시도
-    if (isServerAvailable()) {
-        try {
-            const resp = await fetch('/api/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: inputId, pw: inputPw })
-            });
-            if (resp.ok) {
-                const result = await resp.json();
-                if (result.ok) {
-                    localStorage.setItem('rc_current_user', inputId);
-                    sessionStorage.setItem('rc_logged_in', 'true');
-                    if (rememberMe) {
-                        localStorage.setItem('rc_logged_in', 'true');
-                    } else {
-                        localStorage.removeItem('rc_logged_in');
-                    }
-                    _sessionDataLoaded = false;
-                    if (idInput) idInput.value = '';
-                    if (pwInput) pwInput.value = '';
-                    checkLoginState();
-                    const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
-                    showToast(msg, 'success');
-                    return;
-                }
-                showToast(result.msg || '아이디 또는 비밀번호가 올바르지 않습니다.', 'danger');
-                return;
-            }
-        } catch (err) {
-            console.warn('[RC] 서버 인증 실패, 브라우저 저장 모드로 전환:', err);
-        }
-    }
-
-    // 2. 서버가 없는 환경(GitHub Pages 모드) 오프라인 계정 로직
-    let offlineUsers = {};
     try {
-        const storedUsers = localStorage.getItem('rc_offline_users');
-        if (storedUsers) offlineUsers = JSON.parse(storedUsers);
-    } catch (e) {
-        offlineUsers = {};
-    }
+        const idInput = document.getElementById('login-id');
+        const pwInput = document.getElementById('login-pw');
+        const rememberMeCheckbox = document.getElementById('remember-me');
+        const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : true;
+        let rawId = idInput ? idInput.value.trim() : '';
+        let inputPw = pwInput ? pwInput.value.trim() : '';
 
-    // 기본 admin 계정 보장
-    if (!offlineUsers['admin']) {
-        offlineUsers['admin'] = 'admin';
-    }
-
-    if (offlineUsers[inputId]) {
-        if (offlineUsers[inputId] !== inputPw) {
-            showToast('비밀번호가 올바르지 않습니다.', 'danger');
+        if (!rawId || !inputPw) {
+            showToast('아이디와 비밀번호를 입력해주세요.', 'danger');
             return;
         }
-    } else {
+
+        const inputId = rawId.toLowerCase();
+
+        // 1. 백엔드가 명시적으로 활성화된 환경에서 서버 인증 시도
+        if (isServerAvailable()) {
+            try {
+                const resp = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: inputId, pw: inputPw })
+                });
+                if (resp.ok) {
+                    const result = await resp.json();
+                    if (result.ok) {
+                        localStorage.setItem('rc_current_user', inputId);
+                        sessionStorage.setItem('rc_logged_in', 'true');
+                        if (rememberMe) {
+                            localStorage.setItem('rc_logged_in', 'true');
+                        } else {
+                            localStorage.removeItem('rc_logged_in');
+                        }
+                        _sessionDataLoaded = false;
+                        if (idInput) idInput.value = '';
+                        if (pwInput) pwInput.value = '';
+                        checkLoginState();
+                        const msg = result.isNew ? `새 계정 "${inputId}"(으)로 가입 및 로그인되었습니다.` : `"${inputId}" 계정으로 로그인했습니다.`;
+                        showToast(msg, 'success');
+                        return;
+                    } else {
+                        showToast(result.msg || result.error || '비밀번호가 올바르지 않습니다.', 'danger');
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn('[RC] 서버 인증 실패, 브라우저 저장 모드로 전환:', err);
+            }
+        }
+
+        // 2. 서버가 없거나 서버 인증 실패 시 오프라인/로컬 저장 모드로 진행
+        let offlineUsers = {};
+        try {
+            const storedUsers = localStorage.getItem('rc_offline_users');
+            if (storedUsers) offlineUsers = JSON.parse(storedUsers);
+        } catch (e) {
+            offlineUsers = {};
+        }
+
         offlineUsers[inputId] = inputPw;
         try {
             localStorage.setItem('rc_offline_users', JSON.stringify(offlineUsers));
         } catch (e) {}
-    }
 
-    localStorage.setItem('rc_current_user', inputId);
-    sessionStorage.setItem('rc_logged_in', 'true');
-    if (rememberMe) {
-        localStorage.setItem('rc_logged_in', 'true');
-    } else {
-        localStorage.removeItem('rc_logged_in');
+        localStorage.setItem('rc_current_user', inputId);
+        sessionStorage.setItem('rc_logged_in', 'true');
+        if (rememberMe) {
+            localStorage.setItem('rc_logged_in', 'true');
+        } else {
+            localStorage.removeItem('rc_logged_in');
+        }
+        _sessionDataLoaded = false;
+        if (idInput) idInput.value = '';
+        if (pwInput) pwInput.value = '';
+        checkLoginState();
+        showToast(`"${inputId}" 계정으로 로그인했습니다.`, 'success');
+    } finally {
+        _isLoggingIn = false;
     }
-    _sessionDataLoaded = false;
-    if (idInput) idInput.value = '';
-    if (pwInput) pwInput.value = '';
-    checkLoginState();
-    showToast(`"${inputId}" 계정으로 로그인했습니다. (로컬/깃허브 모드)`, 'info');
 }
+window.handleLoginSubmit = handleLoginSubmit;
 
 function handleLogout() {
     if (confirm('로그아웃 하시겠습니까?')) {
